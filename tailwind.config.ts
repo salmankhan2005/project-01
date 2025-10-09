@@ -44,7 +44,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'system-ui', 'sans-serif'],
+        serif: ['Merriweather', 'serif'],
+        heading: ['Merriweather', 'serif'],
       },
       spacing: {
         '18': '4.5rem',

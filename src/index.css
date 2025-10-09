@@ -8,79 +8,79 @@ All colors MUST be HSL.
 
 @layer base {
   :root, .light {
-    /* Meal Planner Color System */
-    --background: 36 100% 98%;  /* Warm beige #FFF5E6 */
-    --foreground: 0 0% 18%;  /* Charcoal #2D2D2D */
+    /* Morning Dew Theme - Nature-inspired Green/Mint */
+    --background: 145 15% 98%;  /* Off-white with green tint */
+    --foreground: 0 0% 15%;  /* Dark Gray */
 
-    --card: 0 0% 100%;  /* Pure white for cards */
-    --card-foreground: 0 0% 18%;
+    --card: 145 25% 92%;  /* Very Light Mint */
+    --card-foreground: 0 0% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 18%;
+    --popover-foreground: 0 0% 15%;
 
-    /* Primary Green (#3CB371) */
-    --primary: 146 49% 49%;
+    /* Primary Mint/Sage Green */
+    --primary: 145 40% 65%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 146 51% 40%;  /* Darker green #2E8B57 */
+    --primary-hover: 145 40% 55%;
 
-    /* Secondary Orange (#FF8C42) */
-    --secondary: 22 100% 63%;
-    --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 14 100% 63%;  /* Orange variation #FF7043 */
+    /* Secondary Light Mint */
+    --secondary: 145 30% 85%;
+    --secondary-foreground: 0 0% 15%;
+    --secondary-hover: 145 30% 75%;
 
-    --muted: 36 50% 96%;  /* Light beige */
+    --muted: 145 25% 92%;  /* Very Light Mint */
     --muted-foreground: 0 0% 45%;
 
-    --accent: 22 100% 63%;  /* Orange for highlights */
-    --accent-foreground: 0 0% 100%;
+    --accent: 200 30% 90%;  /* Light Blue */
+    --accent-foreground: 0 0% 15%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 28% 88%;
-    --input: 36 28% 88%;
-    --ring: 146 49% 49%;
+    --border: 145 25% 88%;
+    --input: 145 25% 88%;
+    --ring: 145 40% 65%;
 
-    --radius: 1.5rem;  /* 24px rounded corners */
+    --radius: 1.25rem;  /* 20px rounded corners */
 
     /* Glassmorphism effect colors */
-    --glass-bg: 0 0% 100% / 0.7;
-    --glass-border: 0 0% 100% / 0.2;
+    --glass-bg: 0 0% 100% / 0.8;
+    --glass-border: 145 25% 88% / 0.5;
   }
 
   .dark {
-    --background: 0 0% 8%;  /* Deep black/charcoal */
-    --foreground: 0 0% 100%;  /* Pure white */
+    --background: 160 20% 10%;  /* Very Dark Green */
+    --foreground: 150 15% 95%;  /* Light Gray */
 
-    --card: 0 0% 16%;  /* Dark grey for cards */
-    --card-foreground: 0 0% 100%;
+    --card: 160 15% 20%;  /* Dark Teal */
+    --card-foreground: 150 15% 95%;
 
-    --popover: 0 0% 16%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 160 15% 20%;
+    --popover-foreground: 150 15% 95%;
 
-    --primary: 142 70% 50%;  /* Bright green */
-    --primary-foreground: 0 0% 0%;  /* Black text on green */
-    --primary-hover: 142 70% 42%;
+    --primary: 155 40% 60%;  /* Teal Green */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 155 40% 50%;
 
-    --secondary: 0 0% 25%;  /* Dark grey for inactive states */
-    --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 0 0% 30%;
+    --secondary: 160 15% 20%;  /* Dark Teal */
+    --secondary-foreground: 150 15% 95%;
+    --secondary-hover: 160 15% 30%;
 
-    --muted: 0 0% 20%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 160 15% 20%;
+    --muted-foreground: 150 15% 70%;
 
-    --accent: 142 70% 50%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 155 35% 50%;  /* Medium Teal */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 28%;
-    --input: 0 0% 20%;
-    --ring: 142 70% 50%;
+    --border: 160 15% 25%;
+    --input: 160 15% 25%;
+    --ring: 155 40% 60%;
 
-    --glass-bg: 0 0% 16% / 0.7;
-    --glass-border: 0 0% 100% / 0.1;
+    --glass-bg: 160 15% 20% / 0.8;
+    --glass-border: 155 35% 50% / 0.2;
   }
 
   .comic {
