@@ -244,10 +244,10 @@ All colors MUST be HSL.
     --popover: 36 33% 94%;
     --popover-foreground: 25 25% 25%;
 
-    /* Primary Terracotta (#CD5C5C) */
-    --primary: 0 53% 58%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 53% 48%;
+  /* Primary Warm Tan (#B68A65) */
+  --primary: 27 36% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 27 36% 55%;
 
     /* Secondary Warm Brown (#A0826D) */
     --secondary: 25 23% 52%;
@@ -283,9 +283,9 @@ All colors MUST be HSL.
     --popover: 25 18% 17%;
     --popover-foreground: 30 40% 95%;
 
-    --primary: 0 53% 58%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 53% 48%;
+  --primary: 27 36% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 27 36% 55%;
 
     --secondary: 25 23% 52%;
     --secondary-foreground: 0 0% 100%;

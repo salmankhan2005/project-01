@@ -34,14 +34,16 @@ interface Meal {
   time: string;
   name: string;
   description: string;
+  assignedTo?: number;
+  week?: string;
 }
 
 const initialMeals: Record<string, Meal[]> = {
   Monday: [
-    { time: 'Breakfast', name: 'Coffee with toasts', description: '' },
-    { time: 'Lunch', name: 'Meals', description: '' },
-    { time: 'Snack', name: 'Baby Carrots with Hummus', description: '' },
-    { time: 'Dinner', name: 'Grilled Chicken Salad', description: '' }
+    { time: 'Breakfast', name: 'Coffee with toasts', description: '', assignedTo: 1, week: 'Week - 1' },
+    { time: 'Lunch', name: 'Meals', description: '', assignedTo: 2, week: 'Week - 1' },
+    { time: 'Snack', name: 'Baby Carrots with Hummus', description: '', assignedTo: 1, week: 'Week - 1' },
+    { time: 'Dinner', name: 'Grilled Chicken Salad', description: '', assignedTo: 2, week: 'Week - 1' }
   ],
   Tuesday: [],
   Wednesday: [],
@@ -55,7 +57,7 @@ export const Home = () => {
   const { isGuest } = useAuth();
   const navigate = useNavigate();
   const [selectedWeek, setSelectedWeek] = useState('Week - 1');
-  const [selectedFood, setSelectedFood] = useState('');
+  const [selectedFood, setSelectedFood] = useState<number | ''>('');
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
   const [foodDropdownOpen, setFoodDropdownOpen] = useState(false);
   const [meals, setMeals] = useState(initialMeals);
@@ -65,6 +67,7 @@ export const Home = () => {
   const [selectedDay, setSelectedDay] = useState('');
   const [mealName, setMealName] = useState('');
   const [mealDescription, setMealDescription] = useState('');
+  const [selectedAssignedTo, setSelectedAssignedTo] = useState<number | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [craftMealOpen, setCraftMealOpen] = useState(false);
   const [planMonthOpen, setPlanMonthOpen] = useState(false);
@@ -93,7 +96,9 @@ export const Home = () => {
     const newMeal: Meal = {
       time: selectedMealTime,
       name: mealName,
-      description: mealDescription
+      description: mealDescription,
+      assignedTo: selectedAssignedTo ?? (typeof selectedFood === 'number' ? selectedFood : undefined),
+      week: selectedWeek
     };
     setMeals(prev => ({
       ...prev,
@@ -111,6 +116,7 @@ export const Home = () => {
     setMealName(meal.name);
     setMealDescription(meal.description);
     setSelectedMealTime(meal.time);
+    setSelectedAssignedTo(meal.assignedTo ?? null);
     setEditMealOpen(true);
   };
 
@@ -119,7 +125,9 @@ export const Home = () => {
     const updatedMeal: Meal = {
       time: editingMeal.time,
       name: mealName,
-      description: mealDescription
+      description: mealDescription,
+      assignedTo: selectedAssignedTo ?? editingMeal.assignedTo,
+      week: selectedWeek
     };
     setMeals(prev => ({
       ...prev,
@@ -316,7 +324,14 @@ export const Home = () => {
             <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-slate-800 border-slate-700">
               <div className="p-2 space-y-1">
                 {people.map((person) => (
-                  <div key={person.id} className="flex items-center justify-between p-3 border-b border-slate-600 last:border-b-0">
+                  <div
+                    key={person.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { setSelectedFood(person.name); setFoodDropdownOpen(false); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedFood(person.name); setFoodDropdownOpen(false); } }}
+                    className={`flex items-center justify-between p-3 border-b border-slate-600 last:border-b-0 cursor-pointer ${selectedFood === person.name ? 'bg-muted/20' : ''}`}
+                  >
                     <div className="flex-1">
                       <span className="text-white font-medium">{person.name}</span>
                       {person.preferences && (
@@ -330,7 +345,7 @@ export const Home = () => {
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 hover:bg-red-600"
-                      onClick={() => handleRemovePerson(person.id)}
+                      onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id); }}
                     >
                       <Trash2 className="w-4 h-4 text-red-400" />
                     </Button>
@@ -357,7 +372,12 @@ export const Home = () => {
                 
                 <div className="space-y-4">
                   {mealTimes.map(({ name, icon: Icon }) => {
-                    const meal = meals[day]?.find(m => m.time === name);
+                    // find meal that matches time, selected week and selected person (if any)
+                    const meal = (meals[day] || []).find(m => {
+                      const weekMatch = m.week === selectedWeek;
+                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedFood;
+                      return m.time === name && weekMatch && personMatch;
+                    });
                     return (
                       <div key={name} className="bg-card rounded-2xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -475,6 +495,20 @@ export const Home = () => {
               />
             </div>
             <div>
+              <Label htmlFor="meal-assigned">Assign to</Label>
+              <select
+                id="meal-assigned"
+                className="w-full p-2 border rounded-md"
+                value={selectedAssignedTo ?? ''}
+                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Unassigned</option>
+                {people.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <Label htmlFor="meal-description">Description (Optional)</Label>
               <Input
                 id="meal-description"
@@ -514,6 +548,20 @@ export const Home = () => {
                 value={mealName}
                 onChange={(e) => setMealName(e.target.value)}
               />
+            </div>
+            <div>
+              <Label htmlFor="edit-meal-assigned">Assign to</Label>
+              <select
+                id="edit-meal-assigned"
+                className="w-full p-2 border rounded-md"
+                value={selectedAssignedTo ?? ''}
+                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Unassigned</option>
+                {people.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label htmlFor="edit-meal-description">Description (Optional)</Label>
@@ -648,6 +696,20 @@ export const Home = () => {
               <span className="text-sm text-muted-foreground">
                 Adding for: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               </span>
+            </div>
+            <div>
+              <Label htmlFor="quick-meal-assigned">Assign to</Label>
+              <select
+                id="quick-meal-assigned"
+                className="w-full p-2 border rounded-md"
+                value={selectedAssignedTo ?? ''}
+                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Unassigned</option>
+                {people.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
             <Button onClick={handleQuickAdd} className="w-full">
               Add to Today

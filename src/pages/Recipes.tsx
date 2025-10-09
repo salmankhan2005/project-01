@@ -31,6 +31,14 @@ export const Recipes = () => {
     return matchesSearch && matchesCategory;
   });
 
+  // Filter saved recipes by search and selected category as well (category may be optional on saved recipes)
+  const filteredSavedRecipes = savedRecipes.filter((recipe) => {
+    const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const recipeCategory = (recipe as any).category;
+    const matchesCategory = selectedCategory === 'All' || recipeCategory === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   const handleUnsave = (recipeId: number, recipeName: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -70,22 +78,7 @@ export const Recipes = () => {
           />
         </div>
 
-        {/* Category Filter */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {['All', 'Breakfast', 'Lunch', 'Dinner'].map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className="whitespace-nowrap"
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </div>
+
 
         {/* Action Buttons */}
         <div className="mb-6 sm:mb-8">
@@ -97,11 +90,92 @@ export const Recipes = () => {
           </Link>
         </div>
 
+        {/* Saved Items */}
+        <div className="mb-6">
+          <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
+            Saved
+          </h3>
+          {filteredSavedRecipes && filteredSavedRecipes.length > 0 ? (
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredSavedRecipes.map((recipe, idx) => (
+                <Card
+                  key={recipe.id}
+                  className="p-3 sm:p-4 hover:shadow-lg transition-all hover:-translate-y-1 animate-fade-up"
+                  style={{ animationDelay: `${idx * 0.05}s` }}
+                >
+                  <Link to={`/recipe/${recipe.id}`} className="block">
+                    <div className="flex gap-3 sm:gap-4">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
+                        {recipe.image}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {recipe.time}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {recipe.servings} servings
+                          </span>
+                        </div>
+                        <span className="inline-block bg-primary text-primary-foreground text-xs px-2 py-1 rounded-md">
+                          Saved
+                        </span>
+                      </div>
+                      <div className="flex items-start flex-col gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
+                          onClick={(e) => handleUnsave(recipe.id, recipe.name, e)}
+                        >
+                          <BookmarkX className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
+                          onClick={(e) => handleAddToMeal(recipe, e)}
+                        >
+                          <CalendarPlus className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-4 text-sm text-muted-foreground">
+              You don't have any saved recipes yet. Tap the bookmark icon on a recipe to save it here.
+            </Card>
+          )}
+        </div>
+
         {/* Relevant Recipes */}
         <div className="mb-6">
           <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
             Recommended Recipes
           </h3>
+          {/* Category Filter - moved below Recommended Recipes heading */}
+          <div className="mb-4">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {['All', 'Breakfast', 'Lunch', 'Dinner'].map((category) => (
+                <Button
+                  key={category}
+                  variant={selectedCategory === category ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category)}
+                  className="whitespace-nowrap"
+                >
+                  {category}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredRelevantRecipes.map((recipe, idx) => (
               <Card 
@@ -143,6 +217,7 @@ export const Recipes = () => {
               </Card>
             ))}
           </div>
+          
         </div>
       </main>
 
