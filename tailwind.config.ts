@@ -46,6 +46,7 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         serif: ['Merriweather', 'serif'],
         heading: ['Merriweather', 'serif'],
+        day: ['RocknRoll One', 'system-ui', 'sans-serif'],
       },
       spacing: {
         '18': '4.5rem',

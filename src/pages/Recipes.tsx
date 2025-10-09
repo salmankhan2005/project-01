@@ -4,21 +4,32 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Clock, Users, BookmarkX } from 'lucide-react';
+import { Plus, Search, Clock, Users, BookmarkX, CalendarPlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useToast } from '@/hooks/use-toast';
 
+const relevantRecipes = [
+  { id: 1, name: 'Avocado Toast', image: '🥑', time: '5 min', servings: 1, category: 'Breakfast' },
+  { id: 2, name: 'Greek Yogurt Bowl', image: '🥣', time: '3 min', servings: 1, category: 'Breakfast' },
+  { id: 3, name: 'Grilled Chicken Salad', image: '🥗', time: '20 min', servings: 2, category: 'Lunch' },
+  { id: 4, name: 'Quinoa Buddha Bowl', image: '🍲', time: '25 min', servings: 2, category: 'Lunch' },
+  { id: 5, name: 'Salmon with Vegetables', image: '🐟', time: '30 min', servings: 2, category: 'Dinner' },
+  { id: 6, name: 'Pasta Primavera', image: '🍝', time: '25 min', servings: 3, category: 'Dinner' },
+];
+
 export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const { savedRecipes, unsaveRecipe } = useSavedRecipes();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Filter saved recipes based on search query
-  const filteredRecipes = savedRecipes.filter(recipe =>
-    recipe.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRelevantRecipes = relevantRecipes.filter(recipe => {
+    const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || recipe.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const handleUnsave = (recipeId: number, recipeName: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -27,6 +38,15 @@ export const Recipes = () => {
     toast({
       title: "Recipe removed",
       description: `${recipeName} removed from your recipes`,
+    });
+  };
+
+  const handleAddToMeal = (recipe: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toast({
+      title: "Added to meal plan",
+      description: `${recipe.name} added to your meal plan`,
     });
   };
 
@@ -50,6 +70,23 @@ export const Recipes = () => {
           />
         </div>
 
+        {/* Category Filter */}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {['All', 'Breakfast', 'Lunch', 'Dinner'].map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+                className="whitespace-nowrap"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Action Buttons */}
         <div className="mb-6 sm:mb-8">
           <Link to="/recipe-builder">
@@ -60,59 +97,52 @@ export const Recipes = () => {
           </Link>
         </div>
 
-        {/* Recipes Grid */}
+        {/* Relevant Recipes */}
         <div className="mb-6">
           <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
-            {searchQuery ? `Search Results (${filteredRecipes.length})` : 'Saved Recipes'}
+            Recommended Recipes
           </h3>
-          {filteredRecipes.length === 0 ? (
-            <Card className="p-6 sm:p-8 text-center">
-              <p className="text-sm sm:text-base text-muted-foreground">
-                {searchQuery 
-                  ? `No recipes found matching "${searchQuery}"` 
-                  : 'No saved recipes yet. Go to Discover to save some recipes!'}
-              </p>
-            </Card>
-          ) : (
-            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredRecipes.map((recipe, idx) => (
-                <Card 
-                  key={recipe.id}
-                  className="p-3 sm:p-4 hover:shadow-lg transition-all hover:-translate-y-1 animate-fade-up" 
-                  style={{ animationDelay: `${idx * 0.05}s` }}
-                >
-                  <Link to={`/recipe/${recipe.id}`} className="block">
-                    <div className="flex gap-3 sm:gap-4">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
-                        {recipe.image}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
-                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {recipe.time}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {recipe.servings} servings
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
-                        onClick={(e) => handleUnsave(recipe.id, recipe.name, e)}
-                      >
-                        <BookmarkX className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </Button>
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredRelevantRecipes.map((recipe, idx) => (
+              <Card 
+                key={recipe.id}
+                className="p-3 sm:p-4 hover:shadow-lg transition-all hover:-translate-y-1 animate-fade-up" 
+                style={{ animationDelay: `${idx * 0.05}s` }}
+              >
+                <Link to={`/recipe/${recipe.id}`} className="block">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
+                      {recipe.image}
                     </div>
-                  </Link>
-                </Card>
-              ))}
-            </div>
-          )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {recipe.time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {recipe.servings} servings
+                        </span>
+                      </div>
+                      <span className="inline-block bg-primary text-primary-foreground text-xs px-2 py-1 rounded-md">
+                        {recipe.category}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
+                      onClick={(e) => handleAddToMeal(recipe, e)}
+                    >
+                      <CalendarPlus className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </Button>
+                  </div>
+                </Link>
+              </Card>
+            ))}
+          </div>
         </div>
       </main>
 
