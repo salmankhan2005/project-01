@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { sanitizeInput, generateSecureId } from '@/utils/security';
 
 const mealTimes = [
   { name: 'Breakfast', icon: Coffee },
@@ -96,8 +97,8 @@ export const Home = () => {
     const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
     const newMeal: Meal = {
       time: selectedMealTime,
-      name: mealName,
-      description: mealDescription,
+      name: sanitizeInput(mealName),
+      description: sanitizeInput(mealDescription),
       assignedTo: selectedAssignedTo ?? selectedPersonId,
       week: selectedWeek
     };
@@ -212,9 +213,9 @@ export const Home = () => {
     }
     const newPerson: Person = {
       id: Math.max(...people.map(p => p.id), 0) + 1,
-      name: newPersonName.trim(),
-      preferences: newPersonPreferences.trim(),
-      allergies: newPersonAllergies.trim()
+      name: sanitizeInput(newPersonName.trim()),
+      preferences: sanitizeInput(newPersonPreferences.trim()),
+      allergies: sanitizeInput(newPersonAllergies.trim())
     };
     setPeople(prev => [...prev, newPerson]);
     toast.success(`${newPerson.name} added successfully!`);
