@@ -93,11 +93,12 @@ export const Home = () => {
       toast.error('Please fill all fields');
       return;
     }
+    const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
     const newMeal: Meal = {
       time: selectedMealTime,
       name: mealName,
       description: mealDescription,
-      assignedTo: selectedAssignedTo ?? (typeof selectedFood === 'number' ? selectedFood : undefined),
+      assignedTo: selectedAssignedTo ?? selectedPersonId,
       week: selectedWeek
     };
     setMeals(prev => ({
@@ -375,7 +376,8 @@ export const Home = () => {
                     // find meal that matches time, selected week and selected person (if any)
                     const meal = (meals[day] || []).find(m => {
                       const weekMatch = m.week === selectedWeek;
-                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedFood;
+                      const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
+                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedPersonId;
                       return m.time === name && weekMatch && personMatch;
                     });
                     return (
