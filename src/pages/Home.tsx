@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { sanitizeInput, generateSecureId } from '@/utils/security';
 
 const mealTimes = [
   { name: 'Breakfast', icon: Coffee },
@@ -93,11 +94,12 @@ export const Home = () => {
       toast.error('Please fill all fields');
       return;
     }
+    const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
     const newMeal: Meal = {
       time: selectedMealTime,
-      name: mealName,
-      description: mealDescription,
-      assignedTo: selectedAssignedTo ?? (typeof selectedFood === 'number' ? selectedFood : undefined),
+      name: sanitizeInput(mealName),
+      description: sanitizeInput(mealDescription),
+      assignedTo: selectedAssignedTo ?? selectedPersonId,
       week: selectedWeek
     };
     setMeals(prev => ({
@@ -211,9 +213,9 @@ export const Home = () => {
     }
     const newPerson: Person = {
       id: Math.max(...people.map(p => p.id), 0) + 1,
-      name: newPersonName.trim(),
-      preferences: newPersonPreferences.trim(),
-      allergies: newPersonAllergies.trim()
+      name: sanitizeInput(newPersonName.trim()),
+      preferences: sanitizeInput(newPersonPreferences.trim()),
+      allergies: sanitizeInput(newPersonAllergies.trim())
     };
     setPeople(prev => [...prev, newPerson]);
     toast.success(`${newPerson.name} added successfully!`);
@@ -375,7 +377,8 @@ export const Home = () => {
                     // find meal that matches time, selected week and selected person (if any)
                     const meal = (meals[day] || []).find(m => {
                       const weekMatch = m.week === selectedWeek;
-                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedFood;
+                      const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
+                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedPersonId;
                       return m.time === name && weekMatch && personMatch;
                     });
                     return (
