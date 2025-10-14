@@ -94,7 +94,7 @@ export const Home = () => {
       toast.error('Please fill all fields');
       return;
     }
-    const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
+    const selectedPersonId = typeof selectedFood === 'number' ? selectedFood : undefined;
     const newMeal: Meal = {
       time: selectedMealTime,
       name: sanitizeInput(mealName),
@@ -240,128 +240,142 @@ export const Home = () => {
       />
       
       <main className="container-responsive py-6 space-y-6">
-        {/* Plan your month button */}
-        <Button 
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2"
-          onClick={() => setPlanMonthOpen(true)}
-        >
-          <CalendarIcon className="w-5 h-5" />
-          Plan your month
-        </Button>
-
-        {/* View Toggle */}
-        <div className="flex gap-2 bg-muted/50 rounded-full p-1">
+        {/* Large plan button + segmented view (placed above compact controls) */}
+        <div className="space-y-4">
           <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="sm"
-            className="flex-1 rounded-full"
-            onClick={() => setViewMode('list')}
+            className="w-full bg-pink-500 hover:bg-pink-600 text-white rounded-full py-4 flex items-center justify-center gap-2"
+            onClick={() => setPlanMonthOpen(true)}
           >
-            <List className="w-4 h-4 mr-2" />
-            List View
+            <CalendarIcon className="w-5 h-5" />
+            <span className="text-lg font-medium">Plan your month</span>
           </Button>
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-            size="sm"
-            className="flex-1 rounded-full"
-            onClick={() => setViewMode('calendar')}
-          >
-            <Grid className="w-4 h-4 mr-2" />
-            Calendar
-          </Button>
-        </div>
 
-        {/* Quick Add Button */}
-        <Button 
-          variant="outline"
-          className="w-full border-dashed border-2 py-3 text-muted-foreground hover:text-foreground hover:border-primary"
-          onClick={() => setQuickAddOpen(true)}
-        >
-          <Star className="w-4 h-4 mr-2" />
-          Quick Add Today's Meal
-        </Button>
-
-        {/* Week Dropdown */}
-        <div className="relative">
-          <Button
-            variant="outline"
-            className="w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground"
-            onClick={() => setWeekDropdownOpen(!weekDropdownOpen)}
-          >
-            {selectedWeek || 'Week'}
-            {weekDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </Button>
-          {weekDropdownOpen && (
-            <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-slate-800 border-slate-700">
-              <div className="p-2 space-y-1">
-                {weeks.map((week) => (
-                  <Button
-                    key={week}
-                    variant="ghost"
-                    className="w-full justify-start text-white hover:bg-slate-700 border-b border-slate-600 last:border-b-0 rounded-none py-3"
-                    onClick={() => {
-                      setSelectedWeek(week);
-                      setWeekDropdownOpen(false);
-                    }}
-                  >
-                    {week}
-                  </Button>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        {/* Food for Dropdown */}
-        <div className="relative">
-          <Button
-            variant="outline"
-            className="w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground"
-            onClick={() => setFoodDropdownOpen(!foodDropdownOpen)}
-          >
-            {selectedFood || 'Food for'}
-            {foodDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </Button>
-          {foodDropdownOpen && (
-            <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-slate-800 border-slate-700">
-              <div className="p-2 space-y-1">
-                {people.map((person) => (
-                  <div
-                    key={person.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => { setSelectedFood(person.name); setFoodDropdownOpen(false); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedFood(person.name); setFoodDropdownOpen(false); } }}
-                    className={`flex items-center justify-between p-3 border-b border-slate-600 last:border-b-0 cursor-pointer ${selectedFood === person.name ? 'bg-muted/20' : ''}`}
-                  >
-                    <div className="flex-1">
-                      <span className="text-white font-medium">{person.name}</span>
-                      {person.preferences && (
-                        <p className="text-xs text-gray-300">Likes: {person.preferences}</p>
-                      )}
-                      {person.allergies && (
-                        <p className="text-xs text-red-300">Allergies: {person.allergies}</p>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-red-600"
-                      onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id); }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                    </Button>
-                  </div>
-                ))}
+          <div className="w-full">
+            <div className="rounded-full overflow-hidden bg-slate-800">
+              <div className="flex">
                 <Button
-                  className="w-full mt-2 bg-white text-slate-800 hover:bg-gray-200 rounded-full"
-                  onClick={() => setAddPersonOpen(true)}
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  className={`flex-1 text-left py-4 px-6 ${viewMode === 'list' ? 'bg-pink-500 text-white' : 'text-white/90'}`}
+                  onClick={() => setViewMode('list')}
                 >
-                  Add Person
+                  <div className="flex items-center justify-start gap-3">
+                    <List className="w-5 h-5" />
+                    <span className="text-lg font-medium">List View</span>
+                  </div>
+                </Button>
+
+                <Button
+                  variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                  className={`flex-1 text-right py-4 px-6 ${viewMode === 'calendar' ? 'bg-pink-500 text-white' : 'text-white/70'}`}
+                  onClick={() => setViewMode('calendar')}
+                >
+                  <div className="flex items-center justify-end gap-3">
+                    <span className="text-lg font-medium">Calendar</span>
+                    <Grid className="w-5 h-5" />
+                  </div>
                 </Button>
               </div>
-            </Card>
-          )}
+            </div>
+          </div>
+        </div>
+
+        {/* Compact top controls: Week, Food for, Quick Add (pill buttons) */}
+        <div className="flex gap-4 items-start">
+          {/* Week button + dropdown */}
+          <div className="relative flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              className="w-full rounded-full py-4 px-6 bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))] justify-between flex items-center"
+              onClick={() => setWeekDropdownOpen(!weekDropdownOpen)}
+            >
+              <span className="text-lg font-medium truncate">{selectedWeek || 'Week'}</span>
+              {weekDropdownOpen ? <ChevronUp className="w-4 h-4 ml-3" /> : <ChevronDown className="w-4 h-4 ml-3" />}
+            </Button>
+
+            {weekDropdownOpen && (
+              <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-[hsl(var(--popover))] border border-[hsl(var(--border))]">
+                <div className="p-2 space-y-1">
+                  {weeks.map((week) => (
+                    <Button
+                      key={week}
+                      variant="ghost"
+                      className="w-full justify-start text-[hsl(var(--popover-foreground))] hover:bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] last:border-b-0 rounded-none py-3"
+                      onClick={() => {
+                        setSelectedWeek(week);
+                        setWeekDropdownOpen(false);
+                      }}
+                    >
+                      {week}
+                    </Button>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Food for button + dropdown */}
+          <div className="relative flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              className="w-full rounded-full py-4 px-6 bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))] justify-between flex items-center"
+              onClick={() => setFoodDropdownOpen(!foodDropdownOpen)}
+            >
+              <span className="text-lg font-medium truncate">{typeof selectedFood === 'number' ? people.find(p => p.id === selectedFood)?.name ?? 'Food for' : 'Food for'}</span>
+              {foodDropdownOpen ? <ChevronUp className="w-4 h-4 ml-3" /> : <ChevronDown className="w-4 h-4 ml-3" />}
+            </Button>
+
+            {foodDropdownOpen && (
+              <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-[hsl(var(--popover))] border border-[hsl(var(--border))]">
+                <div className="p-2 space-y-1">
+                  {people.map((person) => (
+                    <div
+                      key={person.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => { setSelectedFood(person.id); setFoodDropdownOpen(false); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedFood(person.id); setFoodDropdownOpen(false); } }}
+                      className={`flex items-center justify-between p-3 border-b border-[hsl(var(--border))] last:border-b-0 cursor-pointer ${selectedFood === person.id ? 'bg-[hsl(var(--muted))]' : ''}`}
+                    >
+                      <div className="flex-1">
+                        <span className="text-[hsl(var(--popover-foreground))] font-medium">{person.name}</span>
+                        {person.preferences && (
+                          <p className="text-xs text-[hsl(var(--muted-foreground))]">Likes: {person.preferences}</p>
+                        )}
+                        {person.allergies && (
+                          <p className="text-xs text-red-300">Allergies: {person.allergies}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-red-600"
+                        onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id); }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    className="w-full mt-2 bg-[hsl(var(--card))] text-[hsl(var(--card-foreground))] hover:bg-[hsl(var(--muted))] rounded-full"
+                    onClick={() => setAddPersonOpen(true)}
+                  >
+                    Add Person
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Quick Add button */}
+          <div className="flex-shrink-0 w-56">
+            <Button
+              className="w-full rounded-full py-4 px-6 bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))] flex items-center justify-center gap-2"
+              onClick={() => setQuickAddOpen(true)}
+            >
+              <Star className="w-4 h-4" />
+              <span className="text-lg font-medium">Quick Add</span>
+            </Button>
+          </div>
         </div>
 
         {/* Main Content Area */}
@@ -377,8 +391,8 @@ export const Home = () => {
                     // find meal that matches time, selected week and selected person (if any)
                     const meal = (meals[day] || []).find(m => {
                       const weekMatch = m.week === selectedWeek;
-                      const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
-                      const personMatch = !selectedFood || selectedFood === '' ? true : m.assignedTo === selectedPersonId;
+                      const selectedPersonId = typeof selectedFood === 'number' ? selectedFood : undefined;
+                      const personMatch = selectedPersonId == null ? true : m.assignedTo === selectedPersonId;
                       return m.time === name && weekMatch && personMatch;
                     });
                     return (
