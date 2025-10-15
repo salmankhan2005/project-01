@@ -12,10 +12,10 @@ Make sure you have Node.js & npm installed - [install with nvm](https://github.c
 
 ```sh
 # Clone the repository
-git clone <YOUR_GIT_URL>
+git clone https://github.com/The-Blue-Bale/Meal-Planner-Pro.git
 
 # Navigate to the project directory
-cd <YOUR_PROJECT_NAME>
+cd Meal-Planner-Pro
 
 # Install dependencies
 npm i

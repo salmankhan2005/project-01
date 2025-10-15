@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { ThemeProvider } from "next-themes";
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 // Pages
 import { Splash } from "./pages/Splash";
@@ -81,6 +83,12 @@ const App = () => {
       meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover';
       document.head.appendChild(meta);
     }
+
+    // Configure status bar for Capacitor
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Dark });
+      StatusBar.setBackgroundColor({ color: '#000000' });
+    }
   }, []);
 
   return (
@@ -115,7 +123,9 @@ const App = () => {
             <AuthProvider>
               <SavedRecipesProvider>
                 <div className="min-h-screen bg-background text-foreground antialiased">
-                  <AppRoutes />
+                  <div className="animate-fade-in">
+                    <AppRoutes />
+                  </div>
                 </div>
               </SavedRecipesProvider>
             </AuthProvider>

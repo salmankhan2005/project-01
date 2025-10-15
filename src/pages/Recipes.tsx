@@ -8,6 +8,7 @@ import { Plus, Search, Clock, Users, BookmarkX, CalendarPlus } from 'lucide-reac
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useToast } from '@/hooks/use-toast';
+import { LottieAnimation } from '@/components/LottieAnimation';
 
 const relevantRecipes = [
   { id: 1, name: 'Avocado Toast', image: '🥑', time: '5 min', servings: 1, category: 'Breakfast' },
@@ -90,8 +91,13 @@ export const Recipes = () => {
           </Link>
         </div>
 
+        {/* Lottie Animation Display */}
+        <div className="mb-8 sm:mb-10 flex justify-center">
+          <LottieAnimation className="w-48 h-32" />
+        </div>
+
         {/* Saved Items */}
-        <div className="mb-6">
+        <div className="mb-6 mt-8">
           <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
             Saved
           </h3>
@@ -148,8 +154,9 @@ export const Recipes = () => {
               ))}
             </div>
           ) : (
-            <Card className="p-4 text-sm text-muted-foreground">
-              You don't have any saved recipes yet. Tap the bookmark icon on a recipe to save it here.
+            <Card className="p-4 text-sm text-muted-foreground flex items-center gap-3">
+              <LottieAnimation className="w-12 h-12" />
+              <span>You don't have any saved recipes yet. Tap the bookmark icon on a recipe to save it here.</span>
             </Card>
           )}
         </div>

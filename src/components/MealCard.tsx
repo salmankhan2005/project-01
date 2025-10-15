@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, Edit3 } from 'lucide-react';
+import { AnimatedChef } from '@/components/AnimatedChef';
 
 interface MealCardProps {
   mealType: string;
@@ -17,10 +18,10 @@ export const MealCard: React.FC<MealCardProps> = ({
   onDelete
 }) => {
   return (
-    <div className="bg-white border border-border rounded-[1.25rem] p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white border border-border rounded-[1.25rem] p-4 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 animate-fade-up">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="text-2xl">
+          <div className="text-2xl hover:scale-110 transition-transform duration-200">
             {icon}
           </div>
           <div className="flex flex-col">
@@ -28,6 +29,7 @@ export const MealCard: React.FC<MealCardProps> = ({
               <span className="bg-primary text-primary-foreground font-heading font-bold text-xs px-2 py-1 rounded-md">
                 {mealType}
               </span>
+              <AnimatedChef size={14} />
             </div>
             <p className="font-sans text-sm text-gray-700">
               {mealName}

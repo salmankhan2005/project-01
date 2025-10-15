@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock } from 'lucide-react';
+import { AnimatedChef } from '@/components/AnimatedChef';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -245,7 +246,7 @@ export const Home = () => {
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2"
           onClick={() => setPlanMonthOpen(true)}
         >
-          <CalendarIcon className="w-5 h-5" />
+          <AnimatedChef size={20} />
           Plan your month
         </Button>
 
@@ -416,9 +417,10 @@ export const Home = () => {
                 </div>
 
                 <Button 
-                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-4 text-lg font-medium"
+                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2"
                   onClick={() => setCraftMealOpen(true)}
                 >
+                  <AnimatedChef size={18} />
                   Craft Your Meal
                 </Button>
               </Card>
@@ -470,9 +472,10 @@ export const Home = () => {
                 </div>
                 
                 <Button 
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-3"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-3 flex items-center justify-center gap-2"
                   onClick={() => setCraftMealOpen(true)}
                 >
+                  <AnimatedChef size={16} />
                   Craft Your Meal
                 </Button>
               </div>

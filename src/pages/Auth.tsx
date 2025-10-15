@@ -6,11 +6,13 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChefHat } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfettiAnimation } from '@/components/ConfettiAnimation';
 
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showConfetti, setShowConfetti] = useState(false);
   const navigate = useNavigate();
   const { login, continueAsGuest } = useAuth();
 
@@ -20,8 +22,9 @@ export const Auth = () => {
     // Simulate authentication
     if (email && password) {
       login();
+      setShowConfetti(true);
       toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
-      navigate('/home');
+      setTimeout(() => navigate('/home'), 2000);
     } else {
       toast.error('Please fill in all fields');
     }
@@ -106,6 +109,11 @@ export const Auth = () => {
           </Button>
         </div>
       </div>
+      
+      <ConfettiAnimation 
+        trigger={showConfetti} 
+        onComplete={() => setShowConfetti(false)} 
+      />
     </div>
   );
 };
