@@ -1,0 +1,124 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Bell, Mail, Send } from "lucide-react";
+
+const Notifications = () => {
+  return (
+    <div className="space-y-4 md:space-y-6">
+      <div>
+        <h1 className="text-3xl md:text-4xl font-heading font-bold">Notifications</h1>
+        <p className="text-muted-foreground mt-1 text-sm md:text-base">Send push notifications and emails to users</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Push Notifications */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-heading text-lg md:text-xl">
+              <Bell className="h-5 w-5" />
+              Push Notification
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 md:space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="push-title" className="text-sm">Title</Label>
+              <Input id="push-title" placeholder="Notification title" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="push-message" className="text-sm">Message</Label>
+              <Textarea id="push-message" placeholder="Notification message" rows={4} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="push-target" className="text-sm">Target Audience</Label>
+              <select
+                id="push-target"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option>All Users</option>
+                <option>Premium Users</option>
+                <option>Free Users</option>
+                <option>Professionals</option>
+              </select>
+            </div>
+            <Button className="w-full gap-2">
+              <Send className="h-4 w-4" />
+              Send Notification
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Email Notifications */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-heading text-lg md:text-xl">
+              <Mail className="h-5 w-5" />
+              Email Campaign
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 md:space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-subject" className="text-sm">Subject</Label>
+              <Input id="email-subject" placeholder="Email subject" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-body" className="text-sm">Body</Label>
+              <Textarea id="email-body" placeholder="Email body" rows={4} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-target" className="text-sm">Target Audience</Label>
+              <select
+                id="email-target"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option>All Users</option>
+                <option>Premium Users</option>
+                <option>Free Users</option>
+                <option>Professionals</option>
+              </select>
+            </div>
+            <Button className="w-full gap-2">
+              <Send className="h-4 w-4" />
+              Send Email
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Notifications */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-heading text-lg md:text-xl">Recent Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 md:space-y-4">
+            {[
+              { type: "Push", title: "New Recipe Alert", sent: "2 hours ago", recipients: 8234 },
+              { type: "Email", title: "Weekly Newsletter", sent: "1 day ago", recipients: 12453 },
+              { type: "Push", title: "Premium Discount", sent: "3 days ago", recipients: 5234 },
+              { type: "Email", title: "Feature Update", sent: "1 week ago", recipients: 12453 },
+            ].map((notif, idx) => (
+              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 md:p-4 rounded-lg border">
+                <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                  <div className={`p-2 rounded-full shrink-0 ${notif.type === "Push" ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}>
+                    {notif.type === "Push" ? <Bell className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm md:text-base">{notif.title}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      Sent to {notif.recipients.toLocaleString()} users • {notif.sent}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default Notifications;
