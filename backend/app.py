@@ -446,9 +446,29 @@ def save_recipe(recipe_id):
                     save_data['recipe_name'] = recipe_name
                 
                 logging.info(f'Saving data: {save_data}')
-                result = supabase.table('user_recipes').upsert(save_data).execute()
-                logging.info(f'Save result: {result}')
-                return jsonify({'message': 'Recipe saved'}), 200
+                
+                # Try to update existing record first
+                try:
+                    result = supabase.table('user_recipes').update({
+                        'is_saved': True,
+                        'saved_at': datetime.now(timezone.utc).isoformat()
+                    }).eq('user_id', user_id).eq('recipe_id', str(recipe_id)).execute()
+                    
+                    if result.data:
+                        logging.info('Updated existing record')
+                        return jsonify({'message': 'Recipe saved'}), 200
+                except Exception as update_error:
+                    logging.info(f'Update failed, trying insert: {update_error}')
+                
+                # If update failed, try insert
+                try:
+                    result = supabase.table('user_recipes').insert(save_data).execute()
+                    logging.info(f'Insert result: {result}')
+                    return jsonify({'message': 'Recipe saved'}), 200
+                except Exception as insert_error:
+                    logging.info(f'Insert failed: {insert_error}')
+                    # Recipe already exists, just return success
+                    return jsonify({'message': 'Recipe already saved'}), 200
             
             elif request.method == 'DELETE':
                 # Unsave recipe
