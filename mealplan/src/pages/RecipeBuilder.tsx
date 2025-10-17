@@ -5,14 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export const RecipeBuilder = () => {
   const navigate = useNavigate();
   const { createRecipe } = useSavedRecipes();
+  const { isAuthenticated, isGuest } = useAuth();
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
   const [servings, setServings] = useState('');
@@ -54,6 +57,15 @@ export const RecipeBuilder = () => {
       <Header title="Create Recipe" showNotifications={false} showProfile={false} />
       
       <main className="px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 max-w-4xl mx-auto">
+        {isGuest && (
+          <Alert className="mb-4 border-amber-500 bg-amber-50 text-amber-800">
+            <Info className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              You're in guest mode. Recipes will be saved locally on this device only. Sign in to save recipes to your account.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div>
@@ -179,7 +191,7 @@ export const RecipeBuilder = () => {
             Cancel
           </Button>
           <Button className="flex-1" onClick={handleSave}>
-            Save Recipe
+            {isGuest ? "Save Recipe Locally" : "Save Recipe"}
           </Button>
         </div>
       </main>

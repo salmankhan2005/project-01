@@ -25,11 +25,11 @@ export const WeekMealCards: React.FC = () => {
   ];
 
   const handleEdit = (mealId: number) => {
-    console.log('Edit meal:', mealId);
+    // TODO: Implement edit functionality
   };
 
   const handleDelete = (mealId: number) => {
-    console.log('Delete meal:', mealId);
+    // TODO: Implement delete functionality
   };
 
   return (

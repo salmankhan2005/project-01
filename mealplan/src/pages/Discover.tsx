@@ -4,12 +4,24 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Clock, Users, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Search, Clock, Users, Bookmark, BookmarkCheck, Info } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-const mockRecipes = [
+interface Recipe {
+  id: number | string;
+  name: string;
+  time: string;
+  servings: number;
+  image: string;
+  ingredients?: string[];
+  instructions?: string[];
+}
+
+const mockRecipes: Recipe[] = [
   { id: 1, name: 'Grilled Chicken Salad', time: '25 min', servings: 2, image: '🥗' },
   { id: 2, name: 'Spaghetti Carbonara', time: '30 min', servings: 4, image: '🍝' },
   { id: 3, name: 'Avocado Toast', time: '10 min', servings: 1, image: '🥑' },
@@ -23,17 +35,20 @@ const mockRecipes = [
 export const Discover = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { saveRecipe, unsaveRecipe, isRecipeSaved, createdRecipes } = useSavedRecipes();
+  const { isGuest } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Combine mock recipes with user-created recipes
-  const allRecipes = [...createdRecipes, ...mockRecipes];
+  // Combine mock recipes with user-created recipes, filtering out invalid ones
+  const allRecipes = [...(createdRecipes || []), ...mockRecipes].filter(recipe => 
+    recipe && recipe.name && typeof recipe.name === 'string'
+  );
 
   const filteredRecipes = allRecipes.filter(recipe =>
     recipe.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSaveToggle = (recipe: typeof mockRecipes[0], e: React.MouseEvent) => {
+  const handleSaveToggle = (recipe: Recipe, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -41,13 +56,13 @@ export const Discover = () => {
       unsaveRecipe(recipe.id);
       toast({
         title: "Recipe removed",
-        description: `${recipe.name} removed from your recipes`,
+        description: `${recipe.name || 'Recipe'} removed from your recipes`,
       });
     } else {
       saveRecipe(recipe);
       toast({
         title: "Recipe saved!",
-        description: `${recipe.name} added to your recipes`,
+        description: `${recipe.name || 'Recipe'} added to your recipes`,
       });
     }
   };
@@ -61,6 +76,15 @@ export const Discover = () => {
       />
       
       <main className="px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto">
+        {isGuest && (
+          <Alert className="mb-4 border-amber-500 bg-amber-50 text-amber-800">
+            <Info className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              You're in guest mode. Recipes will be saved locally on this device only. Sign in to save recipes to your account.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {/* Search Bar */}
         <div className="relative mb-4 sm:mb-6 animate-fade-in">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" />

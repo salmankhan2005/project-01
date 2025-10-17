@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { ReviewsProvider } from "@/contexts/ReviewsContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { RecipeProvider } from "@/contexts/RecipeContext";
 import { ThemeProvider } from "next-themes";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -186,17 +187,19 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <SavedRecipesProvider>
-                <ReviewsProvider>
-                  <NotificationProvider>
-                    <div className="min-h-screen bg-background text-foreground antialiased">
-                      <div className="animate-fade-in">
-                        <AppRoutes />
+              <RecipeProvider>
+                <SavedRecipesProvider>
+                  <ReviewsProvider>
+                    <NotificationProvider>
+                      <div className="min-h-screen bg-background text-foreground antialiased">
+                        <div className="animate-fade-in">
+                          <AppRoutes />
+                        </div>
                       </div>
-                    </div>
-                  </NotificationProvider>
-                </ReviewsProvider>
-              </SavedRecipesProvider>
+                    </NotificationProvider>
+                  </ReviewsProvider>
+                </SavedRecipesProvider>
+              </RecipeProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

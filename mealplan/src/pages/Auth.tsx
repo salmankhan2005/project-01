@@ -32,14 +32,37 @@ export const Auth = () => {
       try {
         if (isLogin) {
           await login(email, password);
+          setShowConfetti(true);
+          toast.success('Welcome back!');
+          setTimeout(() => navigate('/home'), 2000);
         } else {
           await register(email, password);
+          toast.success('Account created successfully!');
+          // Clear form fields after successful registration
+          setEmail('');
+          setPassword('');
+          // Switch to login mode after registration
+          setIsLogin(true);
+          // No need to navigate, just switch the form to login mode
         }
-        setShowConfetti(true);
-        toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
-        setTimeout(() => navigate('/home'), 2000);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Authentication failed');
+        const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+        
+        // Special handling for connection errors
+        if (errorMessage.includes('Cannot connect to server')) {
+          toast.error('Cannot connect to server', {
+            description: 'Would you like to continue in guest mode?',
+            action: {
+              label: 'Continue as Guest',
+              onClick: () => {
+                continueAsGuest();
+                navigate('/home');
+              }
+            }
+          });
+        } else {
+          toast.error(errorMessage);
+        }
       } finally {
         setLoading(false);
       }

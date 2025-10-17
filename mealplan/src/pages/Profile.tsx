@@ -59,11 +59,24 @@ export const Profile = () => {
     }
   };
   
+  const sanitizeString = (str: string) => {
+    return str.replace(/[<>"'&]/g, (match) => {
+      const entities: { [key: string]: string } = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '&': '&amp;'
+      };
+      return entities[match] || match;
+    });
+  };
+
   const handleExportData = () => {
     const userData = {
       profile: { 
-        name: userName, 
-        email: userEmail, 
+        name: sanitizeString(userName), 
+        email: sanitizeString(userEmail), 
         userId: user?.id,
         createdAt: new Date().toISOString()
       },
@@ -77,7 +90,10 @@ export const Profile = () => {
     const link = document.createElement('a');
     link.href = url;
     link.download = 'my-meal-planner-data.json';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Data exported successfully!');
   };
   

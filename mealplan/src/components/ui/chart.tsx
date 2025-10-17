@@ -65,23 +65,37 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+  const sanitizeCSS = (css: string) => {
+    // Remove potentially dangerous characters and validate CSS
+    return css.replace(/[<>"'&]/g, '').replace(/javascript:/gi, '');
+  };
+
+  const cssContent = Object.entries(THEMES)
+    .map(
+      ([theme, prefix]) => {
+        const validPrefix = sanitizeCSS(prefix);
+        const validId = sanitizeCSS(id);
+        return `
+${validPrefix} [data-chart="${validId}"] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    const validKey = sanitizeCSS(key);
+    const validColor = color ? sanitizeCSS(color) : null;
+    return validColor ? `  --color-${validKey}: ${validColor};` : null;
   })
+  .filter(Boolean)
   .join("\n")}
 }
-`,
-          )
-          .join("\n"),
+`;
+      }
+    )
+    .join("\n");
+
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: cssContent,
       }}
     />
   );

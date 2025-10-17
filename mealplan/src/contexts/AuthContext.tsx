@@ -18,7 +18,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  updateProfile: (profileData: any) => Promise<void>;
+  updateProfile: (profileData: Partial<User>) => Promise<void>;
   logout: () => void;
   continueAsGuest: () => void;
   subscribe: () => void;
@@ -35,6 +35,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      // First check if backend is available
+      try {
+        const isHealthy = await apiService.checkHealth();
+        if (!isHealthy) {
+          console.warn('Backend server is not available, continuing in guest mode');
+          setIsGuest(true);
+          setIsLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.warn('Health check failed, continuing in guest mode', error);
+        setIsGuest(true);
+        setIsLoading(false);
+        return;
+      }
+      
       const token = localStorage.getItem('auth_token');
       if (token) {
         try {
@@ -42,6 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(response.user);
           setIsAuthenticated(true);
         } catch (error) {
+          console.error('Token verification failed:', error);
           localStorage.removeItem('auth_token');
         }
       }
@@ -52,11 +69,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await apiService.login({ email, password });
-    localStorage.setItem('auth_token', response.token);
-    setUser(response.user);
-    setIsAuthenticated(true);
-    setIsGuest(false);
+    try {
+      const response = await apiService.login({ email, password });
+      localStorage.setItem('auth_token', response.token);
+      setUser(response.user);
+      setIsAuthenticated(true);
+      setIsGuest(false);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Cannot connect to server')) {
+        throw new Error('Cannot connect to server. Would you like to continue as a guest?');
+      }
+      throw error;
+    }
   };
 
   const register = async (email: string, password: string) => {
@@ -79,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
   };
 
-  const updateProfile = async (profileData: any) => {
+  const updateProfile = async (profileData: Partial<User>) => {
     const response = await apiService.updateProfile(profileData);
     setUser(response.user);
   };

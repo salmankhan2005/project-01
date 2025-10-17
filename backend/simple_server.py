@@ -10,12 +10,16 @@ def health():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    return jsonify({'message': 'Login successful', 'token': 'test-token', 'user': {'id': '1', 'email': 'test@test.com'}})
+    # This is a test endpoint - implement proper authentication
+    return jsonify({'message': 'Test endpoint - implement proper auth'}), 501
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    return jsonify({'message': 'User created', 'token': 'test-token', 'user': {'id': '1', 'email': 'test@test.com'}})
+    # This is a test endpoint - implement proper authentication
+    return jsonify({'message': 'Test endpoint - implement proper auth'}), 501
 
 if __name__ == '__main__':
+    import os
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     print('Simple Flask server starting on http://localhost:5000')
-    app.run(debug=True, port=5000, host='127.0.0.1')
+    app.run(debug=debug_mode, port=5000, host='127.0.0.1')

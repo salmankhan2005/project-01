@@ -52,9 +52,13 @@ python app.py
 
 Create `backend/.env` file:
 ```
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-supabase-anon-key
-JWT_SECRET=your-jwt-secret
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_KEY=<your-supabase-anon-key>
+JWT_SECRET=<your-jwt-secret>
+FLASK_DEBUG=False
+PORT=5000
+HOST=127.0.0.1
+ALLOWED_ORIGINS=http://localhost:8080
 ```
 
 ## API Endpoints
