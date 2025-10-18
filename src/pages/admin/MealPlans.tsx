@@ -80,7 +80,7 @@ const MealPlans = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPlans.map((plan) => (
-              <Card key={plan.id} className="hover:shadow-lg transition-shadow">
+              <Card key={plan.id} className="">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

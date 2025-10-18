@@ -290,7 +290,7 @@ const UserForm = ({ user, onSave }: { user: any; onSave: (data: any) => void }) 
   const [formData, setFormData] = useState(user || {
     name: "",
     email: "",
-    role: "User",
+    role: "sub_admin",
     subscription: "Free",
     status: "Active"
   });
@@ -335,8 +335,9 @@ const UserForm = ({ user, onSave }: { user: any; onSave: (data: any) => void }) 
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="User">User</SelectItem>
-              <SelectItem value="Professional">Professional</SelectItem>
+              <SelectItem value="super_admin">Super Admin</SelectItem>
+              <SelectItem value="sub_admin">Sub Admin</SelectItem>
+              <SelectItem value="market_admin">Market Admin</SelectItem>
             </SelectContent>
           </Select>
         </div>

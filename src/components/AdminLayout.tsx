@@ -14,6 +14,9 @@ import {
   Star,
   Mail,
   BarChart3,
+  UserPlus,
+  TrendingUp,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,11 +43,17 @@ const menuItems = [
   { icon: Tags, label: "Categories", path: "/admin/categories" },
   { icon: Star, label: "Reviews", path: "/admin/reviews" },
   { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
+  { icon: TrendingUp, label: "Coupons", path: "/admin/coupons" },
+  { icon: UserPlus, label: "Affiliate Tracking", path: "/admin/affiliate-tracking" },
+  { icon: Palette, label: "Theme Control", path: "/admin/theme-control" },
+  { icon: UserPlus, label: "Create Admin", path: "/admin/create-admin" },
+  { icon: CreditCard, label: "Subscription Plans", path: "/admin/subscription-plans" },
   { icon: CreditCard, label: "Billing", path: "/admin/billing" },
   { icon: Mail, label: "Email Templates", path: "/admin/email-templates" },
   { icon: Palette, label: "Customization", path: "/admin/customization" },
   { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
+  { icon: FileText, label: "System Logs", path: "/admin/system-logs" },
   { icon: HelpCircle, label: "Support", path: "/admin/support" },
 ];
 

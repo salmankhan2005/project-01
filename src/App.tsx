@@ -10,6 +10,12 @@ import ForgotPassword from "./pages/ForgotPassword";
 import AdminLayout from "./components/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Users from "./pages/admin/Users";
+import CreateAdmin from "./pages/admin/CreateAdmin";
+import AffiliateTracking from "./pages/admin/AffiliateTracking";
+import CouponManagement from "./pages/admin/CouponManagement";
+import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
+import ThemeControl from "./pages/admin/ThemeControl";
+import SystemLogs from "./pages/admin/SystemLogs";
 import Recipes from "./pages/admin/Recipes";
 import Billing from "./pages/admin/Billing";
 import Customization from "./pages/admin/Customization";
@@ -50,6 +56,12 @@ const App = () => (
           >
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
+            <Route path="create-admin" element={<CreateAdmin />} />
+            <Route path="affiliate-tracking" element={<AffiliateTracking />} />
+            <Route path="coupons" element={<CouponManagement />} />
+            <Route path="subscription-plans" element={<SubscriptionPlans />} />
+            <Route path="theme-control" element={<ThemeControl />} />
+            <Route path="system-logs" element={<SystemLogs />} />
             <Route path="recipes" element={<Recipes />} />
             <Route path="meal-plans" element={<MealPlans />} />
             <Route path="categories" element={<Categories />} />
