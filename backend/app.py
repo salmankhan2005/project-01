@@ -14,7 +14,7 @@ load_dotenv()
 app = Flask(__name__)
 # Configure CORS
 CORS(app, 
-     origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+     origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
      allow_headers=['Content-Type', 'Authorization'],
      supports_credentials=True)
@@ -62,6 +62,7 @@ def track_usage(event_type):
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 JWT_SECRET = os.getenv('JWT_SECRET')
+ADMIN_JWT_SECRET = os.getenv('ADMIN_JWT_SECRET', 'admin-super-secret-key')
 
 if not all([SUPABASE_URL, SUPABASE_KEY, JWT_SECRET]):
     logging.error('Missing required environment variables')
@@ -153,6 +154,11 @@ def login():
         # Verify password
         if not check_password_hash(user['password_hash'], password):
             return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Update last login time
+        supabase.table('users').update({
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', user['id']).execute()
         
         # Generate token
         token = jwt.encode({
@@ -1365,6 +1371,212 @@ def get_analytics():
     except Exception as e:
         logging.error(f'Analytics error: {e}')
         return jsonify({'error': 'Failed to get analytics'}), 500
+
+# Admin functions
+def get_admin_permissions(role):
+    # Simple role-based permissions without complex database queries
+    permissions = {
+        'super_admin': ['admin_management', 'user_management', 'recipe_management', 'analytics_view', 'system_settings'],
+        'sub_admin': ['user_management', 'recipe_management', 'analytics_view'],
+        'marketing_admin': ['analytics_view', 'marketing_campaigns']
+    }
+    return permissions.get(role, [])
+
+def verify_admin_token(token):
+    try:
+        payload = jwt.decode(token, ADMIN_JWT_SECRET, algorithms=['HS256'])
+        return payload
+    except:
+        return None
+
+# Admin endpoints
+@app.route('/api/admin/auth/login', methods=['POST', 'OPTIONS'])
+def admin_login():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        admin_result = supabase.table('admin_users').select('*').eq('email', email).eq('is_active', True).execute()
+        
+        if not admin_result.data:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        admin = admin_result.data[0]
+        
+        if not check_password_hash(admin['password_hash'], password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        permissions = get_admin_permissions(admin['role'])
+        
+        token = jwt.encode({
+            'admin_id': admin['id'],
+            'email': admin['email'],
+            'role': admin['role'],
+            'permissions': permissions,
+            'exp': datetime.now(timezone.utc) + timedelta(hours=8)
+        }, ADMIN_JWT_SECRET, algorithm='HS256')
+        
+        supabase.table('admin_users').update({
+            'last_login': datetime.now(timezone.utc).isoformat()
+        }).eq('id', admin['id']).execute()
+        
+        return jsonify({
+            'message': 'Login successful',
+            'token': token,
+            'admin': {
+                'id': admin['id'],
+                'email': admin['email'],
+                'name': admin['name'],
+                'role': admin['role'],
+                'permissions': permissions
+            }
+        }), 200
+        
+    except Exception as e:
+        logging.error(f'Admin login error: {e}')
+        return jsonify({'error': 'Login failed'}), 500
+
+@app.route('/api/admin/auth/verify', methods=['GET', 'OPTIONS'])
+def verify_admin_token_endpoint():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = verify_admin_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+        
+        admin_result = supabase.table('admin_users').select('*').eq('id', payload['admin_id']).eq('is_active', True).execute()
+        if admin_result.data:
+            admin = admin_result.data[0]
+            permissions = get_admin_permissions(admin['role'])
+            return jsonify({
+                'admin': {
+                    'id': admin['id'],
+                    'email': admin['email'],
+                    'name': admin['name'],
+                    'role': admin['role'],
+                    'permissions': permissions
+                }
+            }), 200
+        
+        return jsonify({'error': 'Admin not found'}), 404
+        
+    except Exception as e:
+        logging.error(f'Token verification error: {e}')
+        return jsonify({'error': 'Token verification failed'}), 401
+
+@app.route('/api/admin/auth/logout', methods=['POST', 'OPTIONS'])
+def admin_logout():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+@app.route('/api/admin/users', methods=['GET', 'POST', 'OPTIONS'])
+def admin_users():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if request.method == 'GET':
+            if 'admin_management' not in payload.get('permissions', []):
+                return jsonify({'error': 'Insufficient permissions'}), 403
+            
+            result = supabase.table('admin_users').select('id, email, name, role, is_active, created_at, last_login').execute()
+            return jsonify({'admins': result.data}), 200
+            
+        elif request.method == 'POST':
+            if 'admin_management' not in payload.get('permissions', []):
+                return jsonify({'error': 'Insufficient permissions'}), 403
+            
+            data = request.get_json()
+            email = data.get('email')
+            password = data.get('password')
+            name = data.get('name')
+            role = data.get('role')
+            
+            if not all([email, password, name, role]):
+                return jsonify({'error': 'All fields required'}), 400
+            
+            if role not in ['super_admin', 'sub_admin', 'marketing_admin']:
+                return jsonify({'error': 'Invalid role'}), 400
+            
+            existing = supabase.table('admin_users').select('*').eq('email', email).execute()
+            if existing.data:
+                return jsonify({'error': 'Admin already exists'}), 409
+            
+            admin_data = {
+                'email': email,
+                'password_hash': generate_password_hash(password),
+                'name': name,
+                'role': role,
+                'created_by': payload['admin_id']
+            }
+            
+            result = supabase.table('admin_users').insert(admin_data).execute()
+            
+            if result.data:
+                admin = result.data[0]
+                return jsonify({
+                    'message': 'Admin created successfully',
+                    'admin': {
+                        'id': admin['id'],
+                        'email': admin['email'],
+                        'name': admin['name'],
+                        'role': admin['role']
+                    }
+                }), 201
+        
+    except Exception as e:
+        logging.error(f'Admin users error: {e}')
+        return jsonify({'error': 'Operation failed'}), 500
+
+@app.route('/api/admin/regular-users', methods=['GET', 'OPTIONS'])
+def get_regular_users():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,OPTIONS')
+        return response, 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Get all regular users (not admin users)
+        result = supabase.table('users').select('id, email, name, created_at, updated_at').execute()
+        return jsonify({'users': result.data}), 200
+        
+    except Exception as e:
+        logging.error(f'Get all users error: {e}')
+        return jsonify({'error': 'Failed to get users'}), 500
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
