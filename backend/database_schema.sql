@@ -3,8 +3,10 @@
 -- 1. schemas/users_schema.sql
 -- 2. schemas/recipes_schema.sql
 -- 3. schemas/user_recipes_schema.sql
+-- 4. schemas/meal_plans_schema.sql
 
 -- Or run all schemas at once:
 \i schemas/users_schema.sql
 \i schemas/recipes_schema.sql
 \i schemas/user_recipes_schema.sql
+\i schemas/meal_plans_schema.sql

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS meal_plans (
     servings INTEGER DEFAULT 1,
     image VARCHAR(255) DEFAULT '🍽️',
     time VARCHAR(50),
+    week VARCHAR(50) DEFAULT 'Week - 1',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -17,6 +18,12 @@ CREATE TABLE IF NOT EXISTS meal_plans (
 CREATE INDEX IF NOT EXISTS idx_meal_plans_user_id ON meal_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_meal_plans_day ON meal_plans(day);
 CREATE INDEX IF NOT EXISTS idx_meal_plans_user_day ON meal_plans(user_id, day);
+CREATE INDEX IF NOT EXISTS idx_meal_plans_user_week ON meal_plans(user_id, week);
+CREATE INDEX IF NOT EXISTS idx_meal_plans_user_day_week ON meal_plans(user_id, day, week);
+
+-- Removed unique constraint to allow same meals across different weeks
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_meal_plans_unique_week_slot 
+-- ON meal_plans(user_id, day, meal_time, week);
 
 -- Disable Row Level Security for custom authentication
 ALTER TABLE meal_plans DISABLE ROW LEVEL SECURITY;

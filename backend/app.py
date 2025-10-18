@@ -7,15 +7,56 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from datetime import datetime, timedelta, timezone
 import logging
+from functools import wraps
 
 load_dotenv()
 
 app = Flask(__name__)
 # Configure CORS
-CORS(app, origins='*', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type', 'Authorization'])
+CORS(app, 
+     origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+     allow_headers=['Content-Type', 'Authorization'],
+     supports_credentials=True)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# Analytics helper function
+def track_event(user_id, event_type, event_data=None):
+    try:
+        analytics_data = {
+            'user_id': user_id,
+            'event_type': event_type,
+            'event_data': event_data or {},
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        supabase.table('user_analytics').insert(analytics_data).execute()
+    except Exception as e:
+        logging.warning(f'Analytics tracking failed: {e}')
+
+# Analytics decorator
+def track_usage(event_type):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                # Get user_id from JWT token
+                token = request.headers.get('Authorization', '').replace('Bearer ', '')
+                if token:
+                    payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+                    user_id = payload.get('user_id')
+                    if user_id:
+                        track_event(user_id, event_type, {
+                            'endpoint': request.endpoint,
+                            'method': request.method,
+                            'timestamp': datetime.now(timezone.utc).isoformat()
+                        })
+            except:
+                pass  # Don't fail the request if analytics fails
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 # Supabase configuration
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -218,6 +259,7 @@ def update_profile():
         return jsonify({'error': 'Profile update failed'}), 500
 
 @app.route('/api/recipes', methods=['GET', 'POST', 'OPTIONS'])
+@track_usage('recipe_action')
 def recipes():
     if request.method == 'OPTIONS':
         return '', 200
@@ -407,6 +449,7 @@ def get_user_saved_recipes():
         return jsonify({'saved_recipes': []}), 200
 
 @app.route('/api/recipes/<recipe_id>/save', methods=['POST', 'DELETE', 'OPTIONS'])
+@track_usage('recipe_save_action')
 def save_recipe(recipe_id):
     logging.info(f'Save recipe endpoint called: {request.method} /api/recipes/{recipe_id}/save')
     if request.method == 'OPTIONS':
@@ -948,8 +991,347 @@ def change_password():
         logging.error(f'Change password error: {e}')
         return jsonify({'error': 'Failed to change password'}), 500
 
+
+
+# Person Management Endpoints
+@app.route('/api/persons', methods=['GET', 'POST', 'OPTIONS'])
+def manage_persons():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response, 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            try:
+                result = supabase.table('user_persons').select('*').eq('user_id', user_id).order('created_at').execute()
+                return jsonify({'persons': result.data or []}), 200
+            except Exception as db_error:
+                logging.warning(f'user_persons table not found: {db_error}')
+                return jsonify({'persons': []}), 200
+            
+        elif request.method == 'POST':
+            try:
+                data = request.get_json()
+                person_data = {
+                    'user_id': user_id,
+                    'name': data.get('name'),
+                    'preferences': data.get('preferences', ''),
+                    'allergies': data.get('allergies', '')
+                }
+                result = supabase.table('user_persons').insert(person_data).execute()
+                return jsonify({'message': 'Person added', 'person': result.data[0] if result.data else None}), 201
+            except Exception as db_error:
+                logging.warning(f'Failed to add person: {db_error}')
+                return jsonify({'message': 'Person added locally'}), 201
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/persons/<person_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def person_detail(person_id):
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response, 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'PUT':
+            data = request.get_json()
+            update_data = {
+                'name': data.get('name'),
+                'preferences': data.get('preferences'),
+                'allergies': data.get('allergies'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            result = supabase.table('user_persons').update(update_data).eq('id', person_id).eq('user_id', user_id).execute()
+            return jsonify({'message': 'Person updated', 'person': result.data[0] if result.data else None}), 200
+            
+        elif request.method == 'DELETE':
+            supabase.table('user_persons').delete().eq('id', person_id).eq('user_id', user_id).execute()
+            return jsonify({'message': 'Person deleted'}), 200
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# User Preferences Endpoints
+@app.route('/api/preferences', methods=['GET', 'PUT', 'OPTIONS'])
+def user_preferences():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response, 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            try:
+                result = supabase.table('user_preferences').select('*').eq('user_id', user_id).execute()
+                if result.data:
+                    return jsonify({'preferences': result.data[0]}), 200
+                else:
+                    return jsonify({'preferences': {'selected_week': 'Week - 1', 'view_mode': 'list'}}), 200
+            except Exception as db_error:
+                logging.warning(f'user_preferences table not found: {db_error}')
+                return jsonify({'preferences': {'selected_week': 'Week - 1', 'view_mode': 'list'}}), 200
+                
+        elif request.method == 'PUT':
+            try:
+                data = request.get_json()
+                pref_data = {
+                    'user_id': user_id,
+                    'selected_week': data.get('selected_week'),
+                    'view_mode': data.get('view_mode'),
+                    'updated_at': datetime.now(timezone.utc).isoformat()
+                }
+                pref_data = {k: v for k, v in pref_data.items() if v is not None}
+                result = supabase.table('user_preferences').upsert(pref_data).execute()
+                return jsonify({'message': 'Preferences updated'}), 200
+            except Exception as db_error:
+                logging.warning(f'Failed to update preferences: {db_error}')
+                return jsonify({'message': 'Preferences updated locally'}), 200
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Enhanced Meal Plan Endpoints
+@app.route('/api/meal-plan/bulk', methods=['POST', 'OPTIONS'])
+def bulk_meal_plan():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response, 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        data = request.get_json()
+        month = data.get('month')
+        year = data.get('year')
+        week = data.get('week', 'Week - 1')  # Default to Week - 1
+        
+        # Generate sample meal plan for the month
+        import calendar
+        from datetime import date
+        
+        meal_times = ['Breakfast', 'Lunch', 'Dinner']
+        sample_meals = {
+            'Breakfast': ['Oatmeal', 'Eggs & Toast', 'Smoothie Bowl', 'Pancakes'],
+            'Lunch': ['Salad', 'Sandwich', 'Soup', 'Pasta'],
+            'Dinner': ['Grilled Chicken', 'Fish & Rice', 'Stir Fry', 'Pizza']
+        }
+        
+        # Get number of days in month
+        days_in_month = calendar.monthrange(year, month)[1]
+        
+        meals_to_add = []
+        for day in range(1, days_in_month + 1):
+            date_obj = date(year, month, day)
+            day_name = date_obj.strftime('%A')
+            
+            for meal_time in meal_times:
+                meal_name = sample_meals[meal_time][day % len(sample_meals[meal_time])]
+                meals_to_add.append({
+                    'user_id': user_id,
+                    'recipe_id': f'planned-{day}-{meal_time.lower()}',
+                    'recipe_name': meal_name,
+                    'day': day_name,
+                    'meal_time': meal_time,
+                    'servings': 1,
+                    'image': '🍽️',
+                    'week': week
+                })
+        
+        # Insert all meals
+        if meals_to_add:
+            supabase.table('meal_plans').insert(meals_to_add).execute()
+        
+        return jsonify({'message': f'Meal plan created for {calendar.month_name[month]} {year} - {week}'}), 201
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/meal-plan', methods=['GET', 'POST', 'DELETE', 'OPTIONS'])
+@track_usage('meal_plan_action')
 def meal_plan():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            week = request.args.get('week', 'Week - 1')
+            logging.info(f'Getting meal plan for week: {week}, user: {user_id}')
+            try:
+                result = supabase.table('meal_plans').select('*').eq('user_id', user_id).eq('week', week).order('created_at', desc=True).execute()
+                logging.info(f'Meal plan query result: {len(result.data)} items found')
+                return jsonify({'meal_plan': result.data}), 200
+            except Exception as db_error:
+                logging.error(f'meal_plans table query failed: {db_error}')
+                # Return empty array if table doesn't exist or has issues
+                return jsonify({'meal_plan': []}), 200
+        
+        elif request.method == 'POST':
+            data = request.get_json() or {}
+            week = data.get('week', 'Week - 1')
+            
+            logging.info(f'Adding meal to plan for week: {week}, data: {data}')
+            
+            meal_data = {
+                'user_id': user_id,
+                'week': week,
+                'day': data.get('day', 'Monday'),
+                'meal_time': data.get('meal_time', 'lunch'),
+                'recipe_id': str(data.get('recipe_id', '')),
+                'recipe_name': data.get('recipe_name', ''),
+                'servings': data.get('servings', 1),
+                'image': data.get('image', '🍽️'),
+                'time': data.get('time', ''),
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            try:
+                # First, remove any existing meal for the same day/meal_time/week combination
+                supabase.table('meal_plans').delete().eq('user_id', user_id).eq('day', meal_data['day']).eq('meal_time', meal_data['meal_time']).eq('week', week).execute()
+                
+                # Then insert the new meal
+                result = supabase.table('meal_plans').insert(meal_data).execute()
+                logging.info(f'Meal added successfully: {result.data}')
+                return jsonify({'message': 'Added to meal plan', 'meal_plan': result.data}), 201
+            except Exception as db_error:
+                logging.error(f'meal_plans table operation failed: {db_error}')
+                return jsonify({'message': 'Added to meal plan locally'}), 200
+        
+        elif request.method == 'DELETE':
+            meal_id = request.args.get('id')
+            if meal_id:
+                try:
+                    supabase.table('meal_plans').delete().eq('id', meal_id).eq('user_id', user_id).execute()
+                    return jsonify({'message': 'Removed from meal plan'}), 200
+                except Exception as db_error:
+                    logging.error(f'meal_plans delete failed: {db_error}')
+                    return jsonify({'message': 'Removed from meal plan locally'}), 200
+            return jsonify({'message': 'Meal ID required'}), 400
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Meal plan error: {e}')
+        return jsonify({'error': 'Meal plan operation failed'}), 500
+
+@app.route('/api/meal-plan/<meal_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def meal_plan_detail(meal_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'PUT':
+            data = request.get_json() or {}
+            
+            update_data = {
+                'recipe_name': data.get('recipe_name'),
+                'day': data.get('day'),
+                'meal_time': data.get('meal_time'),
+                'servings': data.get('servings'),
+                'week': data.get('week'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Remove None values
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            try:
+                result = supabase.table('meal_plans').update(update_data).eq('id', meal_id).eq('user_id', user_id).execute()
+                return jsonify({'message': 'Meal plan updated', 'meal_plan': result.data}), 200
+            except Exception as db_error:
+                logging.warning(f'meal_plans update failed: {db_error}')
+                return jsonify({'message': 'Meal plan updated locally'}), 200
+        
+        elif request.method == 'DELETE':
+            try:
+                result = supabase.table('meal_plans').delete().eq('id', meal_id).eq('user_id', user_id).execute()
+                return jsonify({'message': 'Meal plan deleted'}), 200
+            except Exception as db_error:
+                logging.warning(f'meal_plans delete failed: {db_error}')
+                return jsonify({'message': 'Meal plan deleted locally'}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Meal plan detail error: {e}')
+        return jsonify({'error': 'Meal plan operation failed'}), 500
+
+@app.route('/api/analytics', methods=['GET', 'OPTIONS'])
+def get_analytics():
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -961,47 +1343,28 @@ def meal_plan():
         payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
         user_id = payload['user_id']
         
-        if request.method == 'GET':
-            # Get user's meal plan
-            result = supabase.table('meal_plans').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
-            return jsonify({'meal_plan': result.data}), 200
-            
-        elif request.method == 'POST':
-            # Add to meal plan
-            data = request.get_json()
-            
-            meal_data = {
-                'user_id': user_id,
-                'recipe_id': str(data.get('recipe_id')),
-                'recipe_name': data.get('recipe_name'),
-                'day': data.get('day'),
-                'meal_time': data.get('meal_time'),
-                'servings': data.get('servings', 1),
-                'image': data.get('image', '🍽️'),
-                'time': data.get('time')
-            }
-            
-            # Remove existing meal for same day/time
-            supabase.table('meal_plans').delete().eq('user_id', user_id).eq('day', data.get('day')).eq('meal_time', data.get('meal_time')).execute()
-            
-            # Add new meal
-            result = supabase.table('meal_plans').insert(meal_data).execute()
-            return jsonify({'message': 'Added to meal plan', 'meal': result.data[0] if result.data else None}), 201
-            
-        elif request.method == 'DELETE':
-            # Remove from meal plan
-            meal_id = request.args.get('id')
-            if meal_id:
-                supabase.table('meal_plans').delete().eq('id', meal_id).eq('user_id', user_id).execute()
-            return jsonify({'message': 'Removed from meal plan'}), 200
-            
+        # Get user analytics
+        result = supabase.table('user_analytics').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(100).execute()
+        
+        # Calculate usage stats
+        events = result.data
+        stats = {
+            'total_events': len(events),
+            'recipe_actions': len([e for e in events if e['event_type'] == 'recipe_action']),
+            'meal_plan_actions': len([e for e in events if e['event_type'] == 'meal_plan_action']),
+            'recipe_saves': len([e for e in events if e['event_type'] == 'recipe_save_action']),
+            'recent_activity': events[:10]
+        }
+        
+        return jsonify({'analytics': stats}), 200
+        
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Token expired'}), 401
     except jwt.InvalidTokenError:
         return jsonify({'error': 'Invalid token'}), 401
     except Exception as e:
-        logging.error(f'Meal plan error: {e}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f'Analytics error: {e}')
+        return jsonify({'error': 'Failed to get analytics'}), 500
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'

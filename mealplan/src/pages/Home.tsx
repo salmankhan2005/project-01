@@ -13,10 +13,12 @@ import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, C
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
+import { useUserData } from '@/contexts/UserDataContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { sanitizeInput, generateSecureId } from '@/utils/security';
+import { apiService } from '@/services/api';
 
 const mealTimes = [
   { name: 'Breakfast', icon: Coffee },
@@ -44,12 +46,7 @@ interface Meal {
 }
 
 const initialMeals: Record<string, Meal[]> = {
-  Monday: [
-    { time: 'Breakfast', name: 'Coffee with toasts', description: '', assignedTo: 1, week: 'Week - 1' },
-    { time: 'Lunch', name: 'Meals', description: '', assignedTo: 2, week: 'Week - 1' },
-    { time: 'Snack', name: 'Baby Carrots with Hummus', description: '', assignedTo: 1, week: 'Week - 1' },
-    { time: 'Dinner', name: 'Grilled Chicken Salad', description: '', assignedTo: 2, week: 'Week - 1' }
-  ],
+  Monday: [],
   Tuesday: [],
   Wednesday: [],
   Thursday: [],
@@ -59,21 +56,30 @@ const initialMeals: Record<string, Meal[]> = {
 };
 
 export const Home = () => {
-  const { isGuest, isSubscribed } = useAuth();
-  const { getMealsForDay, removeFromMealPlan } = useMealPlan();
+  const { isGuest, isSubscribed, isAuthenticated } = useAuth();
+  const { getMealsForDay, removeFromMealPlan, addToMealPlan, loading: mealPlanLoading, mealPlan, currentWeek, setCurrentWeek } = useMealPlan();
+  const { people, preferences, addPerson, updatePerson, deletePerson, updatePreferences } = useUserData();
   const navigate = useNavigate();
-  const [selectedWeek, setSelectedWeek] = useState('Week - 1');
-  const [selectedFood, setSelectedFood] = useState<number | ''>('');
+  const [selectedWeek, setSelectedWeek] = useState(preferences.selectedWeek);
+  const [selectedFood, setSelectedFood] = useState<string>('');
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
   const [foodDropdownOpen, setFoodDropdownOpen] = useState(false);
-  const [meals, setMeals] = useState(initialMeals);
+  const [meals, setMeals] = useState<Record<string, Meal[]>>(initialMeals);
+
+  // Clear local meals when week changes for proper isolation
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMeals(initialMeals);
+    }
+  }, [selectedWeek, isAuthenticated]);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>(preferences.viewMode);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [editMealOpen, setEditMealOpen] = useState(false);
   const [selectedMealTime, setSelectedMealTime] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
   const [mealName, setMealName] = useState('');
   const [mealDescription, setMealDescription] = useState('');
-  const [selectedAssignedTo, setSelectedAssignedTo] = useState<number | null>(null);
+  const [selectedAssignedTo, setSelectedAssignedTo] = useState<string | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [craftMealOpen, setCraftMealOpen] = useState(false);
   const [planMonthOpen, setPlanMonthOpen] = useState(false);
@@ -81,14 +87,10 @@ export const Home = () => {
   const [craftMealName, setCraftMealName] = useState('');
   const [craftMealIngredients, setCraftMealIngredients] = useState('');
   const [craftMealInstructions, setCraftMealInstructions] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(new Date());
-  const [mealPlan, setMealPlan] = useState<Record<string, Meal[]>>({});
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [people, setPeople] = useState<Person[]>([
-    { id: 1, name: 'Person A', preferences: '', allergies: '' },
-    { id: 2, name: 'Person B', preferences: '', allergies: '' }
-  ]);
+
   const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [newPersonPreferences, setNewPersonPreferences] = useState('');
@@ -101,8 +103,26 @@ export const Home = () => {
   const [editMealPlanOpen, setEditMealPlanOpen] = useState(false);
   const [editingMealPlan, setEditingMealPlan] = useState<any>(null);
   const [editMealPlanName, setEditMealPlanName] = useState('');
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState(true);
 
-  const handleAddMeal = () => {
+  // Sync preferences when they change
+  useEffect(() => {
+    setSelectedWeek(preferences.selectedWeek);
+    setViewMode(preferences.viewMode);
+    setCurrentWeek(preferences.selectedWeek);
+  }, [preferences, setCurrentWeek]);
+
+  const savePreferences = async (week?: string, mode?: 'list' | 'calendar') => {
+    await updatePreferences({
+      selectedWeek: week || selectedWeek,
+      viewMode: mode || viewMode
+    });
+  };
+
+
+
+  const handleAddMeal = async () => {
     if (!mealName || !selectedMealTime || !selectedDay) {
       toast.error('Please fill all fields');
       return;
@@ -111,24 +131,43 @@ export const Home = () => {
       toast.error('Please select a week first');
       return;
     }
-    const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
-    const assignedPersonId = selectedAssignedTo ?? selectedPersonId ?? (selectedFood ? people.find(p => p.name === selectedFood)?.id : null);
     
-    const newMeal: Meal = {
-      time: selectedMealTime,
-      name: sanitizeInput(mealName),
-      description: sanitizeInput(mealDescription),
-      assignedTo: assignedPersonId,
-      week: selectedWeek
-    };
-    setMeals(prev => ({
-      ...prev,
-      [selectedDay]: prev[selectedDay] ? [...prev[selectedDay].filter(m => m.time !== selectedMealTime || m.week !== selectedWeek || m.assignedTo !== assignedPersonId), newMeal] : [newMeal]
-    }));
-    toast.success('Meal added successfully');
-    setMealName('');
-    setMealDescription('');
-    setAddMealOpen(false);
+    try {
+      if (isAuthenticated) {
+        // Save to backend
+        await addToMealPlan({
+          recipeId: `meal-${Date.now()}`,
+          recipeName: sanitizeInput(mealName),
+          day: selectedDay,
+          mealTime: selectedMealTime,
+          servings: 1,
+          image: '🍽️',
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          week: selectedWeek
+        });
+      } else {
+        // Local storage for guests
+        const selectedPersonId = selectedAssignedTo ?? null;
+        const newMeal: Meal = {
+          time: selectedMealTime,
+          name: sanitizeInput(mealName),
+          description: sanitizeInput(mealDescription),
+          assignedTo: selectedPersonId,
+          week: selectedWeek
+        };
+        setMeals(prev => ({
+          ...prev,
+          [selectedDay]: prev[selectedDay] ? [...prev[selectedDay].filter(m => m.time !== selectedMealTime || m.week !== selectedWeek || m.assignedTo !== selectedPersonId), newMeal] : [newMeal]
+        }));
+      }
+      
+      toast.success('Meal added successfully');
+      setMealName('');
+      setMealDescription('');
+      setAddMealOpen(false);
+    } catch (error) {
+      toast.error('Failed to add meal');
+    }
   };
 
   const handleEditMeal = (meal: Meal, day: string) => {
@@ -141,40 +180,76 @@ export const Home = () => {
     setEditMealOpen(true);
   };
 
-  const handleUpdateMeal = () => {
+  const handleUpdateMeal = async () => {
     if (!mealName || !editingMeal || !selectedDay) return;
-    const updatedMeal: Meal = {
-      time: editingMeal.time,
-      name: mealName,
-      description: mealDescription,
-      assignedTo: selectedAssignedTo ?? editingMeal.assignedTo,
-      week: selectedWeek || editingMeal.week
-    };
-    setMeals(prev => ({
-      ...prev,
-      [selectedDay]: prev[selectedDay]?.map(m => 
-        m.time === editingMeal.time && m.week === editingMeal.week && m.assignedTo === editingMeal.assignedTo 
-          ? updatedMeal : m
-      ) || []
-    }));
-    toast.success('Meal updated successfully');
-    setEditMealOpen(false);
-    setEditingMeal(null);
-    setMealName('');
-    setMealDescription('');
+    
+    try {
+      if (isAuthenticated) {
+        // Update via backend - remove old and add new
+        await addToMealPlan({
+          recipeId: `meal-${Date.now()}`,
+          recipeName: sanitizeInput(mealName),
+          day: selectedDay,
+          mealTime: editingMeal.time,
+          servings: 1,
+          image: '🍽️',
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          week: selectedWeek
+        });
+      } else {
+        // Local update for guests
+        const updatedMeal: Meal = {
+          time: editingMeal.time,
+          name: mealName,
+          description: mealDescription,
+          assignedTo: selectedAssignedTo ?? editingMeal.assignedTo,
+          week: selectedWeek || editingMeal.week
+        };
+        setMeals(prev => ({
+          ...prev,
+          [selectedDay]: prev[selectedDay]?.map(m => 
+            m.time === editingMeal.time && m.week === editingMeal.week && m.assignedTo === editingMeal.assignedTo 
+              ? updatedMeal : m
+          ) || []
+        }));
+      }
+      
+      toast.success('Meal updated successfully');
+      setEditMealOpen(false);
+      setEditingMeal(null);
+      setMealName('');
+      setMealDescription('');
+    } catch (error) {
+      toast.error('Failed to update meal');
+    }
   };
 
-  const handleDeleteMeal = (mealTime: string, day: string) => {
-    const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
-    setMeals(prev => ({
-      ...prev,
-      [day]: prev[day]?.filter(m => {
-        const weekMatch = selectedWeek ? m.week === selectedWeek : true;
-        const personMatch = selectedPersonId ? m.assignedTo === selectedPersonId : true;
-        return !(m.time === mealTime && weekMatch && personMatch);
-      }) || []
-    }));
-    toast.success('Meal deleted successfully');
+  const handleDeleteMeal = async (mealTime: string, day: string) => {
+    try {
+      if (isAuthenticated) {
+        // Find and delete from backend
+        const mealPlanItems = getMealsForDay(day);
+        const mealToDelete = mealPlanItems.find(item => item.mealTime === mealTime);
+        if (mealToDelete) {
+          await removeFromMealPlan(mealToDelete.id);
+        }
+      } else {
+        // Local delete for guests
+        const selectedPersonId = selectedFood;
+        setMeals(prev => ({
+          ...prev,
+          [day]: prev[day]?.filter(m => {
+            const weekMatch = selectedWeek ? m.week === selectedWeek : true;
+            const personMatch = selectedPersonId ? m.assignedTo?.toString() === selectedPersonId : true;
+            return !(m.time === mealTime && weekMatch && personMatch);
+          }) || []
+        }));
+      }
+      
+      toast.success('Meal deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete meal');
+    }
   };
 
   const handleCraftMeal = async () => {
@@ -182,14 +257,29 @@ export const Home = () => {
       toast.error('Please enter meal name');
       return;
     }
+    
     setCraftMealLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success(`Recipe "${craftMealName}" crafted successfully!`);
-    setCraftMealName('');
-    setCraftMealIngredients('');
-    setCraftMealInstructions('');
-    setCraftMealOpen(false);
-    setCraftMealLoading(false);
+    try {
+      if (isAuthenticated) {
+        await apiService.createRecipe({
+          name: craftMealName,
+          ingredients: craftMealIngredients.split('\n').filter(i => i.trim()),
+          instructions: craftMealInstructions.split('\n').filter(i => i.trim()),
+          servings: 1,
+          difficulty: 'medium'
+        });
+      }
+      
+      toast.success(`Recipe "${craftMealName}" crafted successfully!`);
+      setCraftMealName('');
+      setCraftMealIngredients('');
+      setCraftMealInstructions('');
+      setCraftMealOpen(false);
+    } catch (error) {
+      toast.error('Failed to create recipe');
+    } finally {
+      setCraftMealLoading(false);
+    }
   };
 
   const handlePlanMonth = async () => {
@@ -197,12 +287,21 @@ export const Home = () => {
       toast.error('Please select a date');
       return;
     }
+    
     setPlanMonthLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    const monthName = selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-    toast.success(`Planning meals for ${monthName}`);
-    setPlanMonthOpen(false);
-    setPlanMonthLoading(false);
+    try {
+      if (isAuthenticated) {
+        await apiService.createMonthPlan(selectedDate.getMonth() + 1, selectedDate.getFullYear());
+      }
+      
+      const monthName = selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+      toast.success(`Meal plan created for ${monthName}!`);
+      setPlanMonthOpen(false);
+    } catch (error) {
+      toast.error('Failed to create meal plan');
+    } finally {
+      setPlanMonthLoading(false);
+    }
   };
 
   const handleCalendarMealAdd = (date: Date, mealTime: string) => {
@@ -215,53 +314,80 @@ export const Home = () => {
 
   const getMealsForDate = (date: Date) => {
     const dateKey = date.toDateString();
-    return mealPlan[dateKey] || [];
+    return [];
   };
 
-  const handleQuickAdd = () => {
+  const handleQuickAdd = async () => {
     if (!mealName || !selectedMealTime) {
       toast.error('Please fill all fields');
       return;
     }
-    const today = new Date().toDateString();
-    const newMeal: Meal = {
-      time: selectedMealTime,
-      name: mealName,
-      description: mealDescription
-    };
-    setMealPlan(prev => ({
-      ...prev,
-      [today]: prev[today] ? [...prev[today].filter(m => m.time !== selectedMealTime), newMeal] : [newMeal]
-    }));
-    toast.success('Quick meal added for today!');
-    setMealName('');
-    setMealDescription('');
-    setQuickAddOpen(false);
+    
+    setQuickAddLoading(true);
+    try {
+      const today = new Date();
+      const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+      
+
+      
+      // Use MealPlanContext to add to backend
+      await addToMealPlan({
+        recipeId: `quick-${Date.now()}`, // Generate unique ID for quick add
+        recipeName: sanitizeInput(mealName),
+        day: dayName,
+        mealTime: selectedMealTime,
+        servings: 1,
+        image: '🍽️',
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        week: selectedWeek
+      });
+      
+      toast.success(`Quick meal "${mealName}" added for ${dayName} ${selectedMealTime}!`);
+      setMealName('');
+      setMealDescription('');
+      setSelectedMealTime('');
+      setSelectedAssignedTo(null);
+      setQuickAddOpen(false);
+    } catch (error) {
+      console.error('Failed to add quick meal:', error);
+      toast.error('Failed to add meal. Please try again.');
+    } finally {
+      setQuickAddLoading(false);
+    }
   };
 
-  const handleAddPerson = () => {
+  const handleAddPerson = async () => {
     if (!newPersonName.trim()) {
       toast.error('Please enter person name');
       return;
     }
-    const newPerson: Person = {
-      id: Math.max(...people.map(p => p.id), 0) + 1,
-      name: sanitizeInput(newPersonName.trim()),
-      preferences: sanitizeInput(newPersonPreferences.trim()),
-      allergies: sanitizeInput(newPersonAllergies.trim())
-    };
-    setPeople(prev => [...prev, newPerson]);
-    toast.success(`${newPerson.name} added successfully!`);
-    setNewPersonName('');
-    setNewPersonPreferences('');
-    setNewPersonAllergies('');
-    setAddPersonOpen(false);
+    
+    try {
+      await addPerson({
+        name: sanitizeInput(newPersonName.trim()),
+        preferences: sanitizeInput(newPersonPreferences.trim()),
+        allergies: sanitizeInput(newPersonAllergies.trim())
+      });
+      
+      toast.success(`${newPersonName} added successfully!`);
+      setNewPersonName('');
+      setNewPersonPreferences('');
+      setNewPersonAllergies('');
+      setAddPersonOpen(false);
+    } catch (error) {
+      toast.error('Failed to add person');
+    }
   };
 
-  const handleRemovePerson = (personId: number) => {
+  const handleRemovePerson = async (personId: string | number) => {
     const person = people.find(p => p.id === personId);
-    setPeople(prev => prev.filter(p => p.id !== personId));
-    toast.success(`${person?.name} removed successfully`);
+    
+    try {
+      await deletePerson(personId);
+      toast.success(`${person?.name} removed successfully`);
+    } catch (error) {
+      toast.error('Failed to remove person');
+    }
   };
 
   const handleEditPerson = (person: Person) => {
@@ -270,20 +396,24 @@ export const Home = () => {
     setEditPersonOpen(true);
   };
 
-  const handleUpdatePerson = () => {
+  const handleUpdatePerson = async () => {
     if (!editPersonName.trim() || !editingPerson) {
       toast.error('Please enter person name');
       return;
     }
-    setPeople(prev => prev.map(p => 
-      p.id === editingPerson.id 
-        ? { ...p, name: sanitizeInput(editPersonName.trim()) }
-        : p
-    ));
-    toast.success('Person updated successfully!');
-    setEditPersonName('');
-    setEditingPerson(null);
-    setEditPersonOpen(false);
+    
+    try {
+      await updatePerson(editingPerson.id, {
+        name: sanitizeInput(editPersonName.trim())
+      });
+      
+      toast.success('Person updated successfully!');
+      setEditPersonName('');
+      setEditingPerson(null);
+      setEditPersonOpen(false);
+    } catch (error) {
+      toast.error('Failed to update person');
+    }
   };
 
   const handleDeleteMealPlan = async (mealId: string) => {
@@ -330,6 +460,8 @@ export const Home = () => {
       />
       
       <main className="container-responsive py-6 space-y-6">
+
+        
         {/* Plan your month button */}
         <Button 
           className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
@@ -344,7 +476,10 @@ export const Home = () => {
             variant={viewMode === 'list' ? 'default' : 'ghost'}
             size="sm"
             className="flex-1 rounded-full"
-            onClick={() => setViewMode('list')}
+            onClick={() => {
+              setViewMode('list');
+              savePreferences(undefined, 'list');
+            }}
           >
             <List className="w-4 h-4 mr-2" />
             List View
@@ -353,7 +488,10 @@ export const Home = () => {
             variant={viewMode === 'calendar' ? 'default' : 'ghost'}
             size="sm"
             className="flex-1 rounded-full"
-            onClick={() => setViewMode('calendar')}
+            onClick={() => {
+              setViewMode('calendar');
+              savePreferences(undefined, 'calendar');
+            }}
           >
             <Grid className="w-4 h-4 mr-2" />
             Calendar
@@ -392,7 +530,9 @@ export const Home = () => {
                         onClick={() => {
                           if (!isLocked) {
                             setSelectedWeek(week);
+                            setCurrentWeek(week);
                             setWeekDropdownOpen(false);
+                            savePreferences(week);
                           }
                         }}
                         disabled={isLocked}
@@ -432,7 +572,7 @@ export const Home = () => {
                 setWeekDropdownOpen(false);
               }}
             >
-              {selectedFood || 'Food for'}
+              {selectedFood ? people.find(p => p.id.toString() === selectedFood)?.name || 'Food for' : 'Food for'}
               {foodDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
             {foodDropdownOpen && (
@@ -447,7 +587,7 @@ export const Home = () => {
                         tabIndex={0}
                         onClick={() => { 
                           if (!isLocked) {
-                            setSelectedFood(person.name); 
+                            setSelectedFood(person.id.toString()); 
                             setFoodDropdownOpen(false);
                           }
                         }}
@@ -462,7 +602,7 @@ export const Home = () => {
                           isLocked 
                             ? 'opacity-50 cursor-not-allowed' 
                             : 'cursor-pointer hover:bg-muted/50'
-                        } ${selectedFood === person.name ? 'bg-muted/20' : ''}`}
+                        } ${selectedFood === person.id.toString() ? 'bg-muted/20' : ''}`}
                       >
                         <div className="flex-1 flex items-center gap-2">
                           <span className="text-foreground font-medium">{person.name}</span>
@@ -490,7 +630,7 @@ export const Home = () => {
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0 hover:bg-red-600"
-                              onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id); }}
+                              onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id.toString()); }}
                             >
                               <Trash2 className="w-4 h-4 text-red-400" />
                             </Button>
@@ -560,17 +700,22 @@ export const Home = () => {
                   
                   <div className="space-y-4">
                     {mealTimes.map(({ name, icon: Icon }) => {
-                      // find meal that matches the current context (week + person)
-                      const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
-                      const meal = (meals[day] || []).find(m => {
-                        const weekMatch = selectedWeek ? m.week === selectedWeek : true;
-                        const personMatch = selectedPersonId ? m.assignedTo === selectedPersonId : !selectedFood;
+                      // Check meal plan context (backend meals) - already filtered by week
+                      const mealPlanItems = getMealsForDay(day);
+                      const mealPlanItem = mealPlanItems.find(item => item.mealTime === name);
+                      
+                      // Check local meals (for guests) - filter by current week
+                      const currentPersonId = selectedFood;
+                      const localMeal = (meals[day] || []).find(m => {
+                        const weekMatch = m.week === selectedWeek; // Strict week matching
+                        const personMatch = currentPersonId ? m.assignedTo?.toString() === currentPersonId : !selectedFood;
                         return m.time === name && weekMatch && personMatch;
                       });
                       
-                      // Also check meal plan context
-                      const mealPlanItems = getMealsForDay(day);
-                      const mealPlanItem = mealPlanItems.find(item => item.mealTime === name);
+                      // Use meal plan item first (backend), then local meal
+                      const displayMeal = mealPlanItem || localMeal;
+                      
+
                       return (
                         <div key={name} className="bg-card rounded-2xl p-4 flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -579,15 +724,15 @@ export const Home = () => {
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{name}</p>
-                              <p className="text-sm text-muted-foreground">{meal?.name || mealPlanItem?.recipeName || 'No meal planned'}</p>
-                              {meal && meal.assignedTo && (
+                              <p className="text-sm text-muted-foreground">{displayMeal?.recipeName || displayMeal?.name || 'No meal planned'}</p>
+                              {displayMeal && 'assignedTo' in displayMeal && displayMeal.assignedTo && (
                                 <p className="text-xs text-primary">
-                                  {people.find(p => p.id === meal.assignedTo)?.name}
+                                  {people.find(p => p.id.toString() === displayMeal.assignedTo?.toString())?.name}
                                 </p>
                               )}
                               {mealPlanItem && (
                                 <p className="text-xs text-green-600">
-                                  From Recipe: {mealPlanItem.time}
+                                  Added via meal plan
                                 </p>
                               )}
                             </div>
@@ -600,7 +745,7 @@ export const Home = () => {
                               onClick={() => {
                                 if (mealPlanItem) {
                                   handleDeleteMealPlan(mealPlanItem.id);
-                                } else {
+                                } else if (localMeal) {
                                   handleDeleteMeal(name, day);
                                 }
                               }}
@@ -614,8 +759,8 @@ export const Home = () => {
                               onClick={() => {
                                 if (mealPlanItem) {
                                   handleEditMealPlan(mealPlanItem, day);
-                                } else if (meal) {
-                                  handleEditMeal(meal, day);
+                                } else if (localMeal) {
+                                  handleEditMeal(localMeal, day);
                                 } else {
                                   setSelectedMealTime(name);
                                   setSelectedDay(day);
@@ -733,11 +878,11 @@ export const Home = () => {
                 id="meal-assigned"
                 className="w-full p-2 border rounded-md"
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
             </div>
@@ -788,11 +933,11 @@ export const Home = () => {
                 id="edit-meal-assigned"
                 className="w-full p-2 border rounded-md"
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
             </div>
@@ -946,17 +1091,22 @@ export const Home = () => {
                 id="quick-meal-assigned"
                 className="w-full p-2 border border-border rounded-md bg-background text-foreground"
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
             </div>
-            <Button onClick={handleQuickAdd} className="w-full">
+            <LoadingButton 
+              onClick={handleQuickAdd} 
+              className="w-full"
+              loading={quickAddLoading}
+              loadingText="Adding..."
+            >
               Add to Today
-            </Button>
+            </LoadingButton>
           </div>
         </DialogContent>
       </Dialog>

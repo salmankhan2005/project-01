@@ -12,6 +12,11 @@ import { LottieAnimation } from '@/components/LottieAnimation';
 import { GlowCard } from '@/components/GlowCard';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMealPlan } from '@/contexts/MealPlanContext';
+import { useUserData } from '@/contexts/UserDataContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const relevantRecipes = [
   { id: 1, name: 'Avocado Toast', image: '🥑', time: '5 min', servings: 1, category: 'Breakfast' },
@@ -26,15 +31,26 @@ export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dbSavedRecipes, setDbSavedRecipes] = useState<any[]>([]);
+  const [userRecipes, setUserRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mealPlanDialog, setMealPlanDialog] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedMealTime, setSelectedMealTime] = useState('');
   const { savedRecipes, unsaveRecipe } = useSavedRecipes();
   const { isAuthenticated } = useAuth();
+  const { addToMealPlan, currentWeek } = useMealPlan();
+  const { preferences } = useUserData();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const mealTimes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
 
   useEffect(() => {
     if (isAuthenticated) {
       loadSavedRecipes();
+      loadUserRecipes();
     } else {
       setLoading(false);
     }
@@ -55,6 +71,24 @@ export const Recipes = () => {
       console.error('Failed to load saved recipes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserRecipes = async () => {
+    try {
+      const response = await apiService.getRecipes();
+      setUserRecipes(response.recipes.map(recipe => ({
+        id: recipe.id,
+        name: recipe.title || recipe.name || 'Untitled Recipe',
+        image: recipe.image || '🍽️',
+        time: recipe.cook_time ? `${recipe.cook_time} min` : '30 min',
+        servings: recipe.servings || 1,
+        category: recipe.difficulty || 'Custom',
+        ingredients: recipe.ingredients || [],
+        instructions: recipe.instructions || []
+      })));
+    } catch (error) {
+      console.error('Failed to load user recipes:', error);
     }
   };
 
@@ -107,13 +141,51 @@ export const Recipes = () => {
     }
   };
 
-  const handleAddToMeal = (recipe: typeof relevantRecipes[0], e: React.MouseEvent) => {
+  const handleAddToMeal = (recipe: any, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toast({
-      title: "Added to meal plan",
-      description: `${recipe.name} added to your meal plan`,
-    });
+    setSelectedRecipe(recipe);
+    setMealPlanDialog(true);
+  };
+
+  const handleConfirmAddToMeal = async () => {
+    if (!selectedRecipe || !selectedDay || !selectedMealTime) {
+      toast({
+        title: "Error",
+        description: "Please select both day and meal time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await addToMealPlan({
+        recipeId: selectedRecipe.id,
+        recipeName: selectedRecipe.name,
+        day: selectedDay,
+        mealTime: selectedMealTime,
+        servings: selectedRecipe.servings || 1,
+        image: selectedRecipe.image || '🍽️',
+        time: selectedRecipe.time || '30 min',
+        week: currentWeek || preferences.selectedWeek || 'Week - 1'
+      });
+
+      toast({
+        title: "Added to meal plan",
+        description: `${selectedRecipe.name} added to ${selectedDay} ${selectedMealTime}`,
+      });
+
+      setMealPlanDialog(false);
+      setSelectedRecipe(null);
+      setSelectedDay('');
+      setSelectedMealTime('');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add to meal plan. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -149,9 +221,51 @@ export const Recipes = () => {
         </div>
 
         {/* Lottie Animation Display */}
-        <div className="mb-8 sm:mb-10 flex justify-center">
+        <div className="mb-12 sm:mb-16 flex justify-center px-4 py-6">
           <LottieAnimation className="w-48 h-32" />
         </div>
+
+        {/* My Recipes (Crafted Meals) */}
+        {isAuthenticated && userRecipes.length > 0 && (
+          <div className="mb-8 mt-12">
+            <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
+              My Recipes ({userRecipes.length})
+            </h3>
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {userRecipes.map((recipe, idx) => (
+                <GlowCard
+                  key={`user-${recipe.id}-${idx}`}
+                  className="p-3 sm:p-4 hover:shadow-xl hover:-translate-y-2 animate-fade-up bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20"
+                  style={{ animationDelay: `${idx * 0.05}s` }}
+                >
+                  <Link to={`/recipe/${recipe.id}`} className="block">
+                    <div className="flex gap-3 sm:gap-4">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
+                        {recipe.image}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {recipe.time}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {recipe.servings} servings
+                          </span>
+                        </div>
+                        <span className="inline-block bg-green-600 text-white text-xs px-2 py-1 rounded-md">
+                          My Recipe
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                </GlowCard>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Saved Items */}
         <div className="mb-6 mt-8">
@@ -300,6 +414,58 @@ export const Recipes = () => {
       </main>
 
       <BottomNav />
+
+      {/* Add to Meal Plan Dialog */}
+      <Dialog open={mealPlanDialog} onOpenChange={setMealPlanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Meal Plan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedRecipe && (
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <div className="text-2xl">{selectedRecipe.image}</div>
+                <div>
+                  <h4 className="font-semibold">{selectedRecipe.name}</h4>
+                  <p className="text-sm text-muted-foreground">{selectedRecipe.time} • {selectedRecipe.servings} servings</p>
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <Label htmlFor="day-select">Select Day</Label>
+              <Select value={selectedDay} onValueChange={setSelectedDay}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daysOfWeek.map((day) => (
+                    <SelectItem key={day} value={day}>{day}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="meal-time-select">Select Meal Time</Label>
+              <Select value={selectedMealTime} onValueChange={setSelectedMealTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose meal time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mealTimes.map((time) => (
+                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button onClick={handleConfirmAddToMeal} className="w-full">
+              Add to Meal Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -11,14 +11,18 @@ interface MealPlanItem {
   servings?: number;
   image?: string;
   time?: string;
+  week?: string;
 }
 
 interface MealPlanContextType {
   mealPlan: Record<string, MealPlanItem[]>;
+  currentWeek: string;
+  setCurrentWeek: (week: string) => void;
   addToMealPlan: (item: Omit<MealPlanItem, 'id'>) => Promise<void>;
   removeFromMealPlan: (id: string) => Promise<void>;
   getMealsForDay: (day: string) => MealPlanItem[];
   loading: boolean;
+  refreshMealPlan: () => Promise<void>;
 }
 
 const MealPlanContext = createContext<MealPlanContextType | undefined>(undefined);
@@ -34,18 +38,27 @@ export const useMealPlan = () => {
 export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const [mealPlan, setMealPlan] = useState<Record<string, MealPlanItem[]>>({});
+  const [currentWeek, setCurrentWeek] = useState<string>('Week - 1');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadMealPlan();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentWeek]);
+
+  // Clear meal plan when week changes to force reload
+  useEffect(() => {
+    setMealPlan({});
+    if (isAuthenticated) {
+      loadMealPlan();
+    }
+  }, [currentWeek]);
 
   const loadMealPlan = async () => {
     try {
       setLoading(true);
-      const response = await apiService.getMealPlan();
+      const response = await apiService.getMealPlan(currentWeek);
       const planByDay: Record<string, MealPlanItem[]> = {};
       
       response.meal_plan.forEach((item: any) => {
@@ -57,7 +70,8 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
           mealTime: item.meal_time,
           servings: item.servings,
           image: item.image,
-          time: item.time
+          time: item.time,
+          week: item.week
         };
         
         if (!planByDay[item.day]) {
@@ -84,14 +98,17 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
           meal_time: item.mealTime,
           servings: item.servings,
           image: item.image,
-          time: item.time
+          time: item.time,
+          week: item.week || currentWeek
         });
-        await loadMealPlan();
+        // Force reload with a small delay to ensure backend has processed
+        setTimeout(() => loadMealPlan(), 100);
       } else {
         // Fallback to localStorage for guest users
         const newItem: MealPlanItem = {
           ...item,
-          id: `${item.day}-${item.mealTime}-${Date.now()}`
+          id: `${item.day}-${item.mealTime}-${Date.now()}`,
+          week: item.week || currentWeek
         };
         setMealPlan(prev => ({
           ...prev,
@@ -111,7 +128,8 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       if (isAuthenticated) {
         await apiService.removeFromMealPlan(id);
-        await loadMealPlan();
+        // Force reload with a small delay to ensure backend has processed
+        setTimeout(() => loadMealPlan(), 100);
       } else {
         setMealPlan(prev => {
           const newPlan = { ...prev };
@@ -134,10 +152,13 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
   return (
     <MealPlanContext.Provider value={{
       mealPlan,
+      currentWeek,
+      setCurrentWeek,
       addToMealPlan,
       removeFromMealPlan,
       getMealsForDay,
-      loading
+      loading,
+      refreshMealPlan: loadMealPlan
     }}>
       {children}
     </MealPlanContext.Provider>

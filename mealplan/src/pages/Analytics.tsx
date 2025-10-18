@@ -5,6 +5,9 @@ import { Progress } from '@/components/ui/progress';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Calendar, Clock, ChefHat } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { apiService } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const weeklyData = [
   { day: 'Mon', meals: 4 },
@@ -25,6 +28,26 @@ const mealTypeData = [
 
 export const Analytics = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadAnalytics();
+    }
+  }, [isAuthenticated]);
+
+  const loadAnalytics = async () => {
+    try {
+      const response = await apiService.getAnalytics();
+      setAnalytics(response.analytics);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -40,18 +63,18 @@ export const Analytics = () => {
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-sm text-muted-foreground">This Week</span>
+              <span className="text-sm text-muted-foreground">Meal Plans</span>
             </div>
-            <p className="text-2xl font-bold">24</p>
-            <p className="text-xs text-muted-foreground">Meals Planned</p>
+            <p className="text-2xl font-bold">{analytics?.meal_plan_actions || 0}</p>
+            <p className="text-xs text-muted-foreground">Actions</p>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <ChefHat className="w-4 h-4 text-primary" />
               <span className="text-sm text-muted-foreground">Recipes</span>
             </div>
-            <p className="text-2xl font-bold">12</p>
-            <p className="text-xs text-muted-foreground">Used This Month</p>
+            <p className="text-2xl font-bold">{analytics?.recipe_actions || 0}</p>
+            <p className="text-xs text-muted-foreground">Actions</p>
           </Card>
         </div>
 
@@ -98,30 +121,38 @@ export const Analytics = () => {
           </div>
         </Card>
 
+        {/* Recent Activity */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+          {loading ? (
+            <p className="text-muted-foreground">Loading...</p>
+          ) : analytics?.recent_activity?.length > 0 ? (
+            <div className="space-y-2">
+              {analytics.recent_activity.slice(0, 5).map((activity, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                  <span className="text-sm capitalize">{activity.event_type.replace('_', ' ')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(activity.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No activity yet. Start using the app to see analytics!</p>
+          )}
+        </Card>
+
         {/* Usage Stats */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">App Usage</h3>
+          <h3 className="text-lg font-semibold mb-4">Usage Summary</h3>
           <div className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm">Meal Planning</span>
-                <span className="text-sm">85%</span>
-              </div>
-              <Progress value={85} />
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Total Events</span>
+              <span className="font-medium">{analytics?.total_events || 0}</span>
             </div>
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm">Recipe Discovery</span>
-                <span className="text-sm">60%</span>
-              </div>
-              <Progress value={60} />
-            </div>
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm">Shopping Lists</span>
-                <span className="text-sm">40%</span>
-              </div>
-              <Progress value={40} />
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Recipe Saves</span>
+              <span className="font-medium">{analytics?.recipe_saves || 0}</span>
             </div>
           </div>
         </Card>

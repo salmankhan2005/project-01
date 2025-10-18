@@ -35,6 +35,7 @@ interface Recipe {
   cook_time?: number;
   difficulty?: string;
   tags?: string[];
+  week?: string;
 }
 
 interface RecipeResponse {
@@ -437,8 +438,8 @@ class ApiService {
     return response.json();
   }
 
-  async getMealPlan(): Promise<{ meal_plan: any[] }> {
-    const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+  async getMealPlan(week: string = 'Week - 1'): Promise<{ meal_plan: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plan?week=${encodeURIComponent(week)}`, {
       headers: this.getAuthHeaders()
     });
 
@@ -449,11 +450,14 @@ class ApiService {
     return response.json();
   }
 
-  async addToMealPlan(data: { recipe_id: string | number; recipe_name: string; day: string; meal_time: string; servings?: number; image?: string; time?: string }): Promise<{ message: string; meal: any }> {
+  async addToMealPlan(data: { recipe_id: string | number; recipe_name: string; day: string; meal_time: string; servings?: number; image?: string; time?: string; week?: string }): Promise<{ message: string; meal: any }> {
     const response = await fetch(`${API_BASE_URL}/meal-plan`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        ...data,
+        week: data.week || 'Week - 1' // Default to Week - 1 if not provided
+      })
     });
 
     if (!response.ok) {
@@ -472,6 +476,123 @@ class ApiService {
 
     if (!response.ok) {
       throw new Error('Failed to remove from meal plan');
+    }
+
+    return response.json();
+  }
+
+  // Person Management
+  async getPersons(): Promise<{ persons: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/persons`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get persons');
+    }
+
+    return response.json();
+  }
+
+  async addPerson(data: { name: string; preferences?: string; allergies?: string }): Promise<{ message: string; person: any }> {
+    const response = await fetch(`${API_BASE_URL}/persons`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to add person');
+    }
+
+    return response.json();
+  }
+
+  async updatePerson(personId: string, data: { name?: string; preferences?: string; allergies?: string }): Promise<{ message: string; person: any }> {
+    const response = await fetch(`${API_BASE_URL}/persons/${personId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update person');
+    }
+
+    return response.json();
+  }
+
+  async deletePerson(personId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/persons/${personId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete person');
+    }
+
+    return response.json();
+  }
+
+  // User Preferences
+  async getPreferences(): Promise<{ preferences: any }> {
+    const response = await fetch(`${API_BASE_URL}/preferences`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get preferences');
+    }
+
+    const result = await response.json();
+    // Ensure selected_week defaults to Week - 1
+    if (!result.preferences.selected_week) {
+      result.preferences.selected_week = 'Week - 1';
+    }
+    return result;
+  }
+
+  async updatePreferences(data: { selected_week?: string; view_mode?: string }): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/preferences`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({
+        ...data,
+        selected_week: data.selected_week || 'Week - 1' // Ensure default week
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update preferences');
+    }
+
+    return response.json();
+  }
+
+  // Bulk Meal Planning
+  async createMonthPlan(month: number, year: number, week: string = 'Week - 1'): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/bulk`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ month, year, week })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create month plan');
+    }
+
+    return response.json();
+  }
+
+  // Analytics
+  async getAnalytics(): Promise<{ analytics: any }> {
+    const response = await fetch(`${API_BASE_URL}/analytics`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get analytics');
     }
 
     return response.json();

@@ -10,6 +10,7 @@ import { ReviewsProvider } from "@/contexts/ReviewsContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RecipeProvider } from "@/contexts/RecipeContext";
 import { MealPlanProvider } from "@/contexts/MealPlanContext";
+import { UserDataProvider } from "@/contexts/UserDataContext";
 import { ThemeProvider } from "next-themes";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -188,21 +189,23 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <RecipeProvider>
-                <SavedRecipesProvider>
-                  <ReviewsProvider>
-                    <NotificationProvider>
-                      <MealPlanProvider>
+              <UserDataProvider>
+                <RecipeProvider>
+                  <SavedRecipesProvider>
+                    <ReviewsProvider>
+                      <NotificationProvider>
+                        <MealPlanProvider>
                         <div className="min-h-screen bg-background text-foreground antialiased">
                           <div className="animate-fade-in">
                             <AppRoutes />
                           </div>
                         </div>
-                      </MealPlanProvider>
-                    </NotificationProvider>
-                  </ReviewsProvider>
-                </SavedRecipesProvider>
-              </RecipeProvider>
+                        </MealPlanProvider>
+                      </NotificationProvider>
+                    </ReviewsProvider>
+                  </SavedRecipesProvider>
+                </RecipeProvider>
+              </UserDataProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
