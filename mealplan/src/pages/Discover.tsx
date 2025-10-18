@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { apiService } from '@/services/api';
 
 interface Recipe {
   id: number | string;
@@ -34,35 +35,76 @@ const mockRecipes: Recipe[] = [
 
 export const Discover = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [discoverRecipes, setDiscoverRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
   const { saveRecipe, unsaveRecipe, isRecipeSaved, createdRecipes } = useSavedRecipes();
-  const { isGuest } = useAuth();
+  const { isGuest, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Combine mock recipes with user-created recipes, filtering out invalid ones
-  const allRecipes = [...(createdRecipes || []), ...mockRecipes].filter(recipe => 
-    recipe && recipe.name && typeof recipe.name === 'string'
+  useEffect(() => {
+    loadDiscoverRecipes();
+  }, [isAuthenticated]);
+
+  const loadDiscoverRecipes = async () => {
+    try {
+      if (isAuthenticated) {
+        const response = await apiService.getDiscoverRecipes();
+        setDiscoverRecipes(response.recipes);
+      }
+    } catch (error) {
+      console.error('Failed to load discover recipes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Combine database recipes, user-created recipes, and mock recipes
+  const allRecipes = [
+    ...discoverRecipes,
+    ...(createdRecipes || []), 
+    ...mockRecipes
+  ].filter((recipe, index, self) => 
+    recipe && 
+    recipe.name && 
+    typeof recipe.name === 'string' &&
+    // Remove duplicates based on id
+    index === self.findIndex(r => r.id === recipe.id)
   );
 
   const filteredRecipes = allRecipes.filter(recipe =>
     recipe.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSaveToggle = (recipe: Recipe, e: React.MouseEvent) => {
+  const handleSaveToggle = async (recipe: Recipe, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (isRecipeSaved(recipe.id)) {
-      unsaveRecipe(recipe.id);
+    try {
+      if (isRecipeSaved(recipe.id)) {
+        if (isAuthenticated) {
+          await apiService.unsaveRecipeNew(String(recipe.id));
+        }
+        unsaveRecipe(recipe.id);
+        toast({
+          title: "Recipe removed",
+          description: `${recipe.name || 'Recipe'} removed from your recipes`,
+        });
+      } else {
+        if (isAuthenticated) {
+          await apiService.saveRecipeNew(String(recipe.id), recipe);
+        }
+        saveRecipe(recipe);
+        toast({
+          title: "Recipe saved!",
+          description: `${recipe.name || 'Recipe'} added to your recipes`,
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Recipe removed",
-        description: `${recipe.name || 'Recipe'} removed from your recipes`,
-      });
-    } else {
-      saveRecipe(recipe);
-      toast({
-        title: "Recipe saved!",
-        description: `${recipe.name || 'Recipe'} added to your recipes`,
+        title: "Error",
+        description: "Failed to update recipe. Please try again.",
+        variant: "destructive",
       });
     }
   };
@@ -101,51 +143,75 @@ export const Discover = () => {
           <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
             All Recipes ({filteredRecipes.length})
           </h3>
-          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredRecipes.map((recipe, idx) => {
-              const isSaved = isRecipeSaved(recipe.id);
-              return (
-                <Card 
-                  key={recipe.id}
-                  className="p-3 sm:p-4 hover:shadow-lg transition-all hover:-translate-y-1 animate-fade-up" 
-                  style={{ animationDelay: `${idx * 0.05}s` }}
-                >
-                  <Link to={`/recipe/${recipe.id}`} className="block">
-                    <div className="flex gap-3 sm:gap-4">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
-                        {recipe.image}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
-                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {recipe.time}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {recipe.servings} servings
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        variant={isSaved ? "default" : "outline"}
-                        size="icon"
-                        className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
-                        onClick={(e) => handleSaveToggle(recipe, e)}
-                      >
-                        {isSaved ? (
-                          <BookmarkCheck className="w-3 h-3 sm:w-4 sm:h-4" />
-                        ) : (
-                          <Bookmark className="w-3 h-3 sm:w-4 sm:h-4" />
-                        )}
-                      </Button>
+          {loading ? (
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, idx) => (
+                <Card key={idx} className="p-3 sm:p-4 animate-pulse">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl shrink-0"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded"></div>
+                      <div className="h-3 bg-muted rounded w-3/4"></div>
                     </div>
-                  </Link>
+                  </div>
                 </Card>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredRecipes.map((recipe, idx) => {
+                const isSaved = isRecipeSaved(recipe.id);
+                const isUserCreated = discoverRecipes.some(r => r.id === recipe.id);
+                return (
+                  <Card 
+                    key={recipe.id}
+                    className="p-3 sm:p-4 hover:shadow-lg transition-all hover:-translate-y-1 animate-fade-up" 
+                    style={{ animationDelay: `${idx * 0.05}s` }}
+                  >
+                    <Link to={`/recipe/${recipe.id}`} className="block">
+                      <div className="flex gap-3 sm:gap-4">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
+                          {recipe.image || '🍽️'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
+                          <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {recipe.time}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {recipe.servings} servings
+                            </span>
+                          </div>
+                          {isUserCreated && (
+                            <div className="mt-1">
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                                By {(recipe as any).author || 'User'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant={isSaved ? "default" : "outline"}
+                          size="icon"
+                          className="shrink-0 h-8 w-8 sm:h-9 sm:w-9"
+                          onClick={(e) => handleSaveToggle(recipe, e)}
+                        >
+                          {isSaved ? (
+                            <BookmarkCheck className="w-3 h-3 sm:w-4 sm:h-4" />
+                          ) : (
+                            <Bookmark className="w-3 h-3 sm:w-4 sm:h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </Link>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
 

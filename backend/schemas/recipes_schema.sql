@@ -8,13 +8,17 @@ CREATE TABLE IF NOT EXISTS recipes (
     instructions JSONB DEFAULT '[]'::jsonb,
     prep_time INTEGER,
     cook_time INTEGER,
-    servings INTEGER,
+    servings INTEGER DEFAULT 1,
     difficulty VARCHAR(50) DEFAULT 'medium',
     tags JSONB DEFAULT '[]'::jsonb,
+    image VARCHAR(255) DEFAULT '🍽️',
     is_public BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add image column if it doesn't exist (for existing tables)
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS image VARCHAR(255) DEFAULT '🍽️';
 
 -- Create index for faster user recipe lookups
 CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);

@@ -9,6 +9,7 @@ import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { ReviewsProvider } from "@/contexts/ReviewsContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RecipeProvider } from "@/contexts/RecipeContext";
+import { MealPlanProvider } from "@/contexts/MealPlanContext";
 import { ThemeProvider } from "next-themes";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -191,11 +192,13 @@ const App = () => {
                 <SavedRecipesProvider>
                   <ReviewsProvider>
                     <NotificationProvider>
-                      <div className="min-h-screen bg-background text-foreground antialiased">
-                        <div className="animate-fade-in">
-                          <AppRoutes />
+                      <MealPlanProvider>
+                        <div className="min-h-screen bg-background text-foreground antialiased">
+                          <div className="animate-fade-in">
+                            <AppRoutes />
+                          </div>
                         </div>
-                      </div>
+                      </MealPlanProvider>
                     </NotificationProvider>
                   </ReviewsProvider>
                 </SavedRecipesProvider>

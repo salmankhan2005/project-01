@@ -1,4 +1,5 @@
 import { Header } from '@/components/layout/Header';
+import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -9,12 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Moon, Sun, Bell, Lock, Globe, User, Download, Trash2, LogOut, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiService } from '@/services/api';
 
 export const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { logout, isAuthenticated, user, updateProfile } = useAuth();
   
   // Settings state
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -32,11 +36,19 @@ export const Settings = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Form states
-  const [profileName, setProfileName] = useState('John Doe');
-  const [profileEmail, setProfileEmail] = useState('john@example.com');
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || user.email.split('@')[0]);
+      setProfileEmail(user.email);
+    }
+  }, [user]);
   
   // Get base theme name (without -dark suffix)
   const getBaseTheme = (themeName: string | undefined): string => {
@@ -77,16 +89,25 @@ export const Settings = () => {
   }, [navigate]);
   
   // Settings handlers
-  const handleProfileUpdate = () => {
-    if (!profileName.trim() || !profileEmail.trim()) {
-      toast.error('Please fill all fields');
+  const handleProfileUpdate = async () => {
+    if (!profileName.trim()) {
+      toast.error('Please enter your name');
       return;
     }
-    toast.success('Profile updated successfully');
-    setProfileDialogOpen(false);
+    
+    setLoading(true);
+    try {
+      await updateProfile({ name: profileName.trim() });
+      toast.success('Profile updated successfully');
+      setProfileDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
   
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('Please fill all fields');
       return;
@@ -95,11 +116,27 @@ export const Settings = () => {
       toast.error('Passwords do not match');
       return;
     }
-    toast.success('Password changed successfully');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordDialogOpen(false);
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await apiService.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword
+      });
+      toast.success('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleExportData = () => {
@@ -107,8 +144,18 @@ export const Settings = () => {
     setExportDialogOpen(false);
   };
   
-  const handleDeleteAccount = () => {
-    toast.error('Account deletion initiated. Please check your email.');
+  const handleDeleteAccount = async () => {
+    try {
+      if (isAuthenticated) {
+        await apiService.deleteAccount();
+      }
+      logout();
+      localStorage.clear();
+      navigate('/auth');
+      toast.success('Account deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete account');
+    }
     setDeleteDialogOpen(false);
   };
   
@@ -311,8 +358,8 @@ export const Settings = () => {
                   onChange={(e) => setProfileEmail(e.target.value)}
                 />
               </div>
-              <Button onClick={handleProfileUpdate} className="w-full">
-                Update Profile
+              <Button onClick={handleProfileUpdate} disabled={loading} className="w-full">
+                {loading ? 'Updating...' : 'Update Profile'}
               </Button>
             </div>
           </DialogContent>
@@ -352,8 +399,8 @@ export const Settings = () => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
-              <Button onClick={handlePasswordChange} className="w-full">
-                Change Password
+              <Button onClick={handlePasswordChange} disabled={loading} className="w-full">
+                {loading ? 'Changing...' : 'Change Password'}
               </Button>
             </div>
           </DialogContent>
@@ -398,6 +445,8 @@ export const Settings = () => {
           </DialogContent>
         </Dialog>
       </main>
+
+      <BottomNav />
     </div>
   );
 };
