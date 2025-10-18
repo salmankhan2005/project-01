@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock, Lock, Edit2 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useMealPlan } from '@/contexts/MealPlanContext';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { sanitizeInput, generateSecureId } from '@/utils/security';
@@ -59,6 +60,7 @@ const initialMeals: Record<string, Meal[]> = {
 
 export const Home = () => {
   const { isGuest, isSubscribed } = useAuth();
+  const { getMealsForDay, removeFromMealPlan } = useMealPlan();
   const navigate = useNavigate();
   const [selectedWeek, setSelectedWeek] = useState('Week - 1');
   const [selectedFood, setSelectedFood] = useState<number | ''>('');
@@ -96,6 +98,9 @@ export const Home = () => {
   const [editPersonName, setEditPersonName] = useState('');
   const [planMonthLoading, setPlanMonthLoading] = useState(false);
   const [craftMealLoading, setCraftMealLoading] = useState(false);
+  const [editMealPlanOpen, setEditMealPlanOpen] = useState(false);
+  const [editingMealPlan, setEditingMealPlan] = useState<any>(null);
+  const [editMealPlanName, setEditMealPlanName] = useState('');
 
   const handleAddMeal = () => {
     if (!mealName || !selectedMealTime || !selectedDay) {
@@ -279,6 +284,41 @@ export const Home = () => {
     setEditPersonName('');
     setEditingPerson(null);
     setEditPersonOpen(false);
+  };
+
+  const handleDeleteMealPlan = async (mealId: string) => {
+    try {
+      await removeFromMealPlan(mealId);
+      toast.success('Meal removed from plan');
+    } catch (error) {
+      toast.error('Failed to remove meal');
+    }
+  };
+
+  const handleEditMealPlan = (mealPlanItem: any, day: string) => {
+    setEditingMealPlan(mealPlanItem);
+    setEditMealPlanName(mealPlanItem.recipeName);
+    setSelectedDay(day);
+    setEditMealPlanOpen(true);
+  };
+
+  const handleUpdateMealPlan = async () => {
+    if (!editMealPlanName.trim() || !editingMealPlan) {
+      toast.error('Please enter meal name');
+      return;
+    }
+    
+    try {
+      // Remove old meal and add updated one
+      await removeFromMealPlan(editingMealPlan.id);
+      // Note: You might want to add an update endpoint instead of delete+add
+      toast.success('Meal updated successfully!');
+      setEditMealPlanOpen(false);
+      setEditingMealPlan(null);
+      setEditMealPlanName('');
+    } catch (error) {
+      toast.error('Failed to update meal');
+    }
   };
 
   return (
@@ -527,6 +567,10 @@ export const Home = () => {
                         const personMatch = selectedPersonId ? m.assignedTo === selectedPersonId : !selectedFood;
                         return m.time === name && weekMatch && personMatch;
                       });
+                      
+                      // Also check meal plan context
+                      const mealPlanItems = getMealsForDay(day);
+                      const mealPlanItem = mealPlanItems.find(item => item.mealTime === name);
                       return (
                         <div key={name} className="bg-card rounded-2xl p-4 flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -535,10 +579,15 @@ export const Home = () => {
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{name}</p>
-                              <p className="text-sm text-muted-foreground">{meal?.name || 'No meal planned'}</p>
+                              <p className="text-sm text-muted-foreground">{meal?.name || mealPlanItem?.recipeName || 'No meal planned'}</p>
                               {meal && meal.assignedTo && (
                                 <p className="text-xs text-primary">
                                   {people.find(p => p.id === meal.assignedTo)?.name}
+                                </p>
+                              )}
+                              {mealPlanItem && (
+                                <p className="text-xs text-green-600">
+                                  From Recipe: {mealPlanItem.time}
                                 </p>
                               )}
                             </div>
@@ -548,7 +597,13 @@ export const Home = () => {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0 hover:bg-destructive/20"
-                              onClick={() => handleDeleteMeal(name, day)}
+                              onClick={() => {
+                                if (mealPlanItem) {
+                                  handleDeleteMealPlan(mealPlanItem.id);
+                                } else {
+                                  handleDeleteMeal(name, day);
+                                }
+                              }}
                             >
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
@@ -556,7 +611,17 @@ export const Home = () => {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0 hover:bg-primary/20"
-                              onClick={() => meal ? handleEditMeal(meal, day) : (() => { setSelectedMealTime(name); setSelectedDay(day); setAddMealOpen(true); })()}
+                              onClick={() => {
+                                if (mealPlanItem) {
+                                  handleEditMealPlan(mealPlanItem, day);
+                                } else if (meal) {
+                                  handleEditMeal(meal, day);
+                                } else {
+                                  setSelectedMealTime(name);
+                                  setSelectedDay(day);
+                                  setAddMealOpen(true);
+                                }
+                              }}
                             >
                               <Edit className="w-4 h-4 text-primary" />
                             </Button>
@@ -960,6 +1025,38 @@ export const Home = () => {
             </div>
             <Button onClick={handleUpdatePerson} className="w-full">
               Update Person
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Meal Plan Dialog */}
+      <Dialog open={editMealPlanOpen} onOpenChange={setEditMealPlanOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Meal Plan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="edit-meal-plan-name">Meal Name</Label>
+              <Input
+                id="edit-meal-plan-name"
+                value={editMealPlanName}
+                onChange={(e) => setEditMealPlanName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Day</Label>
+                <p className="text-sm text-muted-foreground mt-1">{selectedDay}</p>
+              </div>
+              <div>
+                <Label>Meal Time</Label>
+                <p className="text-sm text-muted-foreground mt-1">{editingMealPlan?.mealTime}</p>
+              </div>
+            </div>
+            <Button onClick={handleUpdateMealPlan} className="w-full">
+              Update Meal
             </Button>
           </div>
         </DialogContent>

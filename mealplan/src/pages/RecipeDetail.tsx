@@ -1,4 +1,5 @@
 import { Header } from '@/components/layout/Header';
+import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,8 +11,11 @@ import { useReviews } from '@/contexts/ReviewsContext';
 import { StarRating } from '@/components/StarRating';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { apiService } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMealPlan } from '@/contexts/MealPlanContext';
 
 const recipeData = {
   1: {
@@ -51,17 +55,40 @@ export const RecipeDetail = () => {
   const { id } = useParams();
   const { savedRecipes, isRecipeSaved, saveRecipe, unsaveRecipe } = useSavedRecipes();
   const { getRecipeReviews, getAverageRating, addReview } = useReviews();
+  const { isAuthenticated } = useAuth();
+  const { addToMealPlan } = useMealPlan();
   const [addToMealPlanOpen, setAddToMealPlanOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedMealTime, setSelectedMealTime] = useState('');
   const [newRating, setNewRating] = useState(0);
   const [newReview, setNewReview] = useState('');
+  const [dbRecipe, setDbRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
   
   const recipeId = parseInt(id || '0');
   const recipeReviews = getRecipeReviews(recipeId);
   const averageRating = getAverageRating(recipeId);
-  const recipe = recipeData[recipeId as keyof typeof recipeData] || savedRecipes.find(r => r.id === recipeId);
+  
+  useEffect(() => {
+    loadRecipeDetails();
+  }, [id, isAuthenticated]);
+  
+  const loadRecipeDetails = async () => {
+    try {
+      if (isAuthenticated && id) {
+        const response = await apiService.getRecipeDetails(id);
+        setDbRecipe(response.recipe);
+      }
+    } catch (error) {
+      console.log('Recipe not found in database, using static data');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Try database recipe first, then static data, then saved recipes
+  const recipe = dbRecipe || recipeData[recipeId as keyof typeof recipeData] || savedRecipes.find(r => r.id === recipeId);
   const isSaved = isRecipeSaved(recipeId);
   
   const handleSaveToggle = () => {
@@ -75,13 +102,30 @@ export const RecipeDetail = () => {
     }
   };
   
-  const handleAddToMealPlan = () => {
-    if (!selectedDay || !selectedMealTime) {
+  const handleAddToMealPlan = async () => {
+    if (!selectedDay || !selectedMealTime || !recipe) {
       toast.error('Please select day and meal time');
       return;
     }
-    toast.success(`Added to ${selectedDay} ${selectedMealTime}`);
-    setAddToMealPlanOpen(false);
+    
+    try {
+      await addToMealPlan({
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        day: selectedDay,
+        mealTime: selectedMealTime,
+        servings: recipe.servings,
+        image: recipe.image,
+        time: recipe.time
+      });
+      
+      toast.success(`Added ${recipe.name} to ${selectedDay} ${selectedMealTime}`);
+      setAddToMealPlanOpen(false);
+      setSelectedDay('');
+      setSelectedMealTime('');
+    } catch (error) {
+      toast.error('Failed to add to meal plan');
+    }
   };
   
   const handleAddReview = () => {
@@ -95,6 +139,14 @@ export const RecipeDetail = () => {
     setNewRating(0);
     setNewReview('');
   };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   
   if (!recipe) {
     return (
@@ -307,6 +359,8 @@ export const RecipeDetail = () => {
           </Dialog>
         </div>
       </main>
+
+      <BottomNav />
     </div>
   );
 };

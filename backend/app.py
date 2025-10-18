@@ -11,9 +11,8 @@ import logging
 load_dotenv()
 
 app = Flask(__name__)
-# Restrict CORS to specific origins in production
-allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:8080').split(',')
-CORS(app, origins=allowed_origins, methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type', 'Authorization'])
+# Configure CORS
+CORS(app, origins='*', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type', 'Authorization'])
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -534,15 +533,28 @@ def create_recipe():
         if not data.get('name'):
             return jsonify({'error': 'Recipe name is required'}), 400
         
-        # Prepare recipe data
+        # Parse time string to extract minutes (e.g., "25 min" -> 25)
+        time_str = data.get('time', '')
+        cook_time_minutes = 0
+        if time_str:
+            # Extract number from time string
+            import re
+            time_match = re.search(r'(\d+)', time_str)
+            if time_match:
+                cook_time_minutes = int(time_match.group(1))
+        
+        # Prepare complete recipe data
         recipe_data = {
             'user_id': user_id,
-            'name': data.get('name'),
-            'time': data.get('time'),
-            'servings': data.get('servings'),
-            'image': data.get('image'),
-            'ingredients': data.get('ingredients'),
-            'instructions': data.get('instructions'),
+            'title': data.get('name'),
+            'cook_time': cook_time_minutes,
+            'servings': data.get('servings', 1),
+            'image': data.get('image', '🍽️'),
+            'ingredients': data.get('ingredients', []),
+            'instructions': data.get('instructions', []),
+            'description': data.get('description', ''),
+            'difficulty': data.get('difficulty', 'medium'),
+            'tags': data.get('tags', []),
             'created_at': datetime.now(timezone.utc).isoformat()
         }
         
@@ -551,6 +563,8 @@ def create_recipe():
         
         if result.data:
             return jsonify({'message': 'Recipe created successfully', 'recipe': result.data[0]}), 201
+        else:
+            return jsonify({'error': 'Failed to create recipe'}), 500
         
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Token expired'}), 401
@@ -589,6 +603,405 @@ def delete_recipe(recipe_id):
     except Exception as e:
         logging.error(f'Delete recipe error: {e}')
         return jsonify({'error': 'Failed to delete recipe'}), 500
+
+@app.route('/api/saved-recipes', methods=['GET', 'POST', 'DELETE', 'OPTIONS'])
+def manage_saved_recipes():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            # Get user's saved recipes
+            result = supabase.table('saved_recipes').select('*').eq('user_id', user_id).order('saved_at', desc=True).execute()
+            return jsonify({'saved_recipes': result.data}), 200
+            
+        elif request.method == 'POST':
+            # Save a recipe
+            data = request.get_json()
+            recipe_id = data.get('recipe_id')
+            recipe_data = data.get('recipe_data', {})
+            
+            if not recipe_id:
+                return jsonify({'error': 'Recipe ID required'}), 400
+            
+            save_data = {
+                'user_id': user_id,
+                'recipe_id': str(recipe_id),
+                'recipe_name': recipe_data.get('name') or recipe_data.get('title') or 'Untitled Recipe',
+                'recipe_data': recipe_data
+            }
+            
+            # Use upsert to handle duplicates
+            result = supabase.table('saved_recipes').upsert(save_data).execute()
+            return jsonify({'message': 'Recipe saved successfully'}), 200
+            
+        elif request.method == 'DELETE':
+            # Unsave a recipe
+            recipe_id = request.args.get('recipe_id')
+            if not recipe_id:
+                return jsonify({'error': 'Recipe ID required'}), 400
+            
+            result = supabase.table('saved_recipes').delete().eq('user_id', user_id).eq('recipe_id', str(recipe_id)).execute()
+            return jsonify({'message': 'Recipe unsaved successfully'}), 200
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Saved recipes error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/recipes/<recipe_id>/details', methods=['GET', 'OPTIONS'])
+def get_recipe_details(recipe_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # Get recipe from recipes table
+        recipe_result = supabase.table('recipes').select('*').eq('id', recipe_id).execute()
+        
+        if not recipe_result.data:
+            return jsonify({'error': 'Recipe not found'}), 404
+        
+        recipe = recipe_result.data[0]
+        
+        # Get user info
+        user_info = {}
+        try:
+            user_result = supabase.table('users').select('name, email').eq('id', recipe['user_id']).execute()
+            if user_result.data:
+                user_info = user_result.data[0]
+        except:
+            pass
+        
+        time_display = "30 min"  # Always show default time
+        
+        formatted_recipe = {
+            'id': recipe['id'],
+            'name': recipe.get('title', 'Untitled Recipe'),
+            'title': recipe.get('title', 'Untitled Recipe'),
+            'time': time_display,
+            'servings': recipe.get('servings', 1),
+            'image': recipe.get('image', '🍽️'),
+            'ingredients': recipe.get('ingredients', []),
+            'instructions': recipe.get('instructions', []),
+            'difficulty': recipe.get('difficulty', 'medium'),
+            'tags': recipe.get('tags', []),
+            'author': user_info.get('name') or (user_info.get('email', '').split('@')[0] if user_info.get('email') else 'Anonymous'),
+            'created_at': recipe.get('created_at')
+        }
+        
+        return jsonify({'recipe': formatted_recipe}), 200
+        
+    except Exception as e:
+        logging.error(f'Get recipe details error: {e}')
+        return jsonify({'error': 'Failed to get recipe details'}), 500
+
+@app.route('/api/discover/recipes', methods=['GET', 'OPTIONS'])
+def get_discover_recipes():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # Get all recipes for discover page
+        recipes_result = supabase.table('recipes').select('*').order('created_at', desc=True).limit(50).execute()
+        
+        # Format recipes for discover page
+        recipes = []
+        for recipe in recipes_result.data:
+            # Get user info separately
+            user_info = {}
+            try:
+                user_result = supabase.table('users').select('name, email').eq('id', recipe['user_id']).execute()
+                if user_result.data:
+                    user_info = user_result.data[0]
+            except:
+                pass
+            
+            time_display = "30 min"  # Always show default time
+            
+            formatted_recipe = {
+                'id': recipe['id'],
+                'name': recipe.get('title', 'Untitled Recipe'),
+                'title': recipe.get('title', 'Untitled Recipe'),
+                'time': time_display,
+                'servings': recipe.get('servings', 1),
+                'image': recipe.get('image', '🍽️'),
+                'ingredients': recipe.get('ingredients', []),
+                'instructions': recipe.get('instructions', []),
+                'difficulty': recipe.get('difficulty', 'medium'),
+                'tags': recipe.get('tags', []),
+                'author': user_info.get('name') or (user_info.get('email', '').split('@')[0] if user_info.get('email') else 'Anonymous'),
+                'created_at': recipe.get('created_at')
+            }
+            recipes.append(formatted_recipe)
+        
+        return jsonify({'recipes': recipes}), 200
+        
+    except Exception as e:
+        logging.error(f'Get discover recipes error: {e}')
+        return jsonify({'error': 'Failed to get recipes'}), 500
+
+@app.route('/api/shopping/items', methods=['GET', 'POST', 'OPTIONS'])
+def shopping_items():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            result = supabase.table('shopping_items').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+            return jsonify({'items': result.data}), 200
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            item_name = data.get('item_name')
+            category = data.get('category', 'Other')
+            quantity = data.get('quantity', 1)
+            unit = data.get('unit', 'pcs')
+            
+            if not item_name:
+                return jsonify({'error': 'Item name required'}), 400
+            
+            item_data = {
+                'user_id': user_id,
+                'item_name': item_name,
+                'category': category,
+                'quantity': quantity,
+                'unit': unit
+            }
+            
+            result = supabase.table('shopping_items').insert(item_data).execute()
+            
+            # Update recent items
+            recent_result = supabase.table('recent_items').select('*').eq('user_id', user_id).ilike('item_name', item_name).execute()
+            
+            if recent_result.data:
+                recent_item = recent_result.data[0]
+                supabase.table('recent_items').update({
+                    'frequency': recent_item['frequency'] + 1,
+                    'last_used': datetime.now(timezone.utc).isoformat()
+                }).eq('id', recent_item['id']).execute()
+            else:
+                recent_data = {
+                    'user_id': user_id,
+                    'item_name': item_name,
+                    'category': category
+                }
+                supabase.table('recent_items').insert(recent_data).execute()
+            
+            return jsonify({'message': 'Item added successfully', 'item': result.data[0]}), 201
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shopping/recent', methods=['GET', 'OPTIONS'])
+def recent_items():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        result = supabase.table('recent_items').select('*').eq('user_id', user_id).order('frequency', desc=True).order('last_used', desc=True).limit(10).execute()
+        
+        return jsonify({'recent_items': result.data}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shopping/items/<item_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def update_shopping_item(item_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'PUT':
+            data = request.get_json()
+            update_data = {}
+            
+            if 'is_completed' in data:
+                update_data['is_completed'] = data['is_completed']
+            if 'quantity' in data:
+                update_data['quantity'] = data['quantity']
+            
+            result = supabase.table('shopping_items').update(update_data).eq('id', item_id).eq('user_id', user_id).execute()
+            
+            return jsonify({'message': 'Item updated successfully', 'item': result.data[0] if result.data else None}), 200
+            
+        elif request.method == 'DELETE':
+            supabase.table('shopping_items').delete().eq('id', item_id).eq('user_id', user_id).execute()
+            return jsonify({'message': 'Item deleted successfully'}), 200
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/auth/delete-account', methods=['DELETE', 'OPTIONS'])
+def delete_account():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        # Delete user account (CASCADE will delete related data)
+        supabase.table('users').delete().eq('id', user_id).execute()
+        
+        return jsonify({'message': 'Account deleted successfully'}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Delete account error: {e}')
+        return jsonify({'error': 'Failed to delete account'}), 500
+
+@app.route('/api/auth/change-password', methods=['PUT', 'OPTIONS'])
+def change_password():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return jsonify({'error': 'Current and new passwords required'}), 400
+        
+        # Get user
+        user_result = supabase.table('users').select('*').eq('id', user_id).execute()
+        if not user_result.data:
+            return jsonify({'error': 'User not found'}), 404
+        
+        user = user_result.data[0]
+        
+        # Verify current password
+        if not check_password_hash(user['password_hash'], current_password):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+        
+        # Update password
+        new_password_hash = generate_password_hash(new_password)
+        supabase.table('users').update({
+            'password_hash': new_password_hash,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', user_id).execute()
+        
+        return jsonify({'message': 'Password changed successfully'}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Change password error: {e}')
+        return jsonify({'error': 'Failed to change password'}), 500
+
+@app.route('/api/meal-plan', methods=['GET', 'POST', 'DELETE', 'OPTIONS'])
+def meal_plan():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        if request.method == 'GET':
+            # Get user's meal plan
+            result = supabase.table('meal_plans').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+            return jsonify({'meal_plan': result.data}), 200
+            
+        elif request.method == 'POST':
+            # Add to meal plan
+            data = request.get_json()
+            
+            meal_data = {
+                'user_id': user_id,
+                'recipe_id': str(data.get('recipe_id')),
+                'recipe_name': data.get('recipe_name'),
+                'day': data.get('day'),
+                'meal_time': data.get('meal_time'),
+                'servings': data.get('servings', 1),
+                'image': data.get('image', '🍽️'),
+                'time': data.get('time')
+            }
+            
+            # Remove existing meal for same day/time
+            supabase.table('meal_plans').delete().eq('user_id', user_id).eq('day', data.get('day')).eq('meal_time', data.get('meal_time')).execute()
+            
+            # Add new meal
+            result = supabase.table('meal_plans').insert(meal_data).execute()
+            return jsonify({'message': 'Added to meal plan', 'meal': result.data[0] if result.data else None}), 201
+            
+        elif request.method == 'DELETE':
+            # Remove from meal plan
+            meal_id = request.args.get('id')
+            if meal_id:
+                supabase.table('meal_plans').delete().eq('id', meal_id).eq('user_id', user_id).execute()
+            return jsonify({'message': 'Removed from meal plan'}), 200
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Meal plan error: {e}')
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'

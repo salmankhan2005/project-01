@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,8 @@ import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useToast } from '@/hooks/use-toast';
 import { LottieAnimation } from '@/components/LottieAnimation';
 import { GlowCard } from '@/components/GlowCard';
+import { apiService } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const relevantRecipes = [
   { id: 1, name: 'Avocado Toast', image: '🥑', time: '5 min', servings: 1, category: 'Breakfast' },
@@ -23,9 +25,38 @@ const relevantRecipes = [
 export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [dbSavedRecipes, setDbSavedRecipes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { savedRecipes, unsaveRecipe } = useSavedRecipes();
+  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadSavedRecipes();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const loadSavedRecipes = async () => {
+    try {
+      const response = await apiService.getSavedRecipesNew();
+      setDbSavedRecipes(response.saved_recipes.map(item => ({
+        id: item.recipe_id,
+        name: item.recipe_data?.name || item.recipe_data?.title || item.recipe_name || 'Untitled Recipe',
+        image: item.recipe_data?.image || '🍽️',
+        time: item.recipe_data?.time || '30 min',
+        servings: item.recipe_data?.servings || 1,
+        category: item.recipe_data?.category || 'Other'
+      })));
+    } catch (error) {
+      console.error('Failed to load saved recipes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredRelevantRecipes = relevantRecipes.filter(recipe => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -33,22 +64,47 @@ export const Recipes = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Filter saved recipes by search and selected category as well (category may be optional on saved recipes)
-  const filteredSavedRecipes = savedRecipes.filter((recipe) => {
+  // Combine database saved recipes with local saved recipes
+  const allSavedRecipes = [...dbSavedRecipes, ...savedRecipes];
+  
+  // Remove duplicates based on ID
+  const uniqueSavedRecipes = allSavedRecipes.filter((recipe, index, self) => 
+    index === self.findIndex(r => r.id === recipe.id)
+  );
+  
+  // Filter saved recipes by search and selected category
+  const filteredSavedRecipes = uniqueSavedRecipes.filter((recipe) => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const recipeCategory = (recipe as typeof relevantRecipes[0]).category;
+    const recipeCategory = recipe.category;
     const matchesCategory = selectedCategory === 'All' || recipeCategory === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleUnsave = (recipeId: number, recipeName: string, e: React.MouseEvent) => {
+  const handleUnsave = async (recipeId: number | string, recipeName: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    unsaveRecipe(recipeId);
-    toast({
-      title: "Recipe removed",
-      description: `${recipeName} removed from your recipes`,
-    });
+    
+    try {
+      if (isAuthenticated) {
+        await apiService.unsaveRecipeNew(String(recipeId));
+        // Remove from database saved recipes
+        setDbSavedRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+      }
+      
+      // Also remove from local saved recipes
+      unsaveRecipe(recipeId);
+      
+      toast({
+        title: "Recipe removed",
+        description: `${recipeName} removed from your recipes`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove recipe. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddToMeal = (recipe: typeof relevantRecipes[0], e: React.MouseEvent) => {
@@ -100,13 +156,27 @@ export const Recipes = () => {
         {/* Saved Items */}
         <div className="mb-6 mt-8">
           <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
-            Saved
+            Saved ({filteredSavedRecipes.length})
           </h3>
-          {filteredSavedRecipes && filteredSavedRecipes.length > 0 ? (
+          {loading ? (
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, idx) => (
+                <Card key={idx} className="p-3 sm:p-4 animate-pulse">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl shrink-0"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded"></div>
+                      <div className="h-3 bg-muted rounded w-3/4"></div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : filteredSavedRecipes && filteredSavedRecipes.length > 0 ? (
             <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredSavedRecipes.map((recipe, idx) => (
                 <GlowCard
-                  key={recipe.id}
+                  key={`saved-${recipe.id}-${idx}`}
                   className="p-3 sm:p-4 hover:shadow-xl hover:-translate-y-2 animate-fade-up bg-gradient-to-br from-card to-card/80"
                   style={{ animationDelay: `${idx * 0.05}s` }}
                 >
@@ -187,7 +257,7 @@ export const Recipes = () => {
           <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredRelevantRecipes.map((recipe, idx) => (
               <GlowCard 
-                key={recipe.id}
+                key={`relevant-${recipe.id}-${idx}`}
                 className="p-3 sm:p-4 hover:shadow-xl hover:-translate-y-2 animate-fade-up bg-gradient-to-br from-card to-card/80" 
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >

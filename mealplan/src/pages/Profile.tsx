@@ -10,6 +10,7 @@ import { User, Camera, Upload, Check, Download, Trash2, Shield, Mail, Phone, Map
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiService } from '@/services/api';
 import { useState, useRef, useEffect } from 'react';
 
 const defaultAvatars = [
@@ -97,10 +98,18 @@ export const Profile = () => {
     toast.success('Data exported successfully!');
   };
   
-  const handleDeleteAccount = () => {
-    logout();
-    navigate('/auth');
-    toast.success('Account deleted successfully');
+  const handleDeleteAccount = async () => {
+    try {
+      if (isAuthenticated) {
+        await apiService.deleteAccount();
+      }
+      logout();
+      localStorage.clear();
+      navigate('/auth');
+      toast.success('Account deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete account');
+    }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

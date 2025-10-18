@@ -248,6 +248,234 @@ class ApiService {
       throw error;
     }
   }
+
+  async getShoppingItems(): Promise<{ items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/items`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get shopping items');
+    }
+
+    return response.json();
+  }
+
+  async addShoppingItem(data: { item_name: string; category?: string; quantity?: number; unit?: string }): Promise<{ message: string; item: any }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/items`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add item');
+    }
+
+    return response.json();
+  }
+
+  async getRecentItems(): Promise<{ recent_items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/recent`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get recent items');
+    }
+
+    return response.json();
+  }
+
+  async updateShoppingItem(itemId: string, data: { is_completed?: boolean; quantity?: number }): Promise<{ message: string; item: any }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/items/${itemId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update item');
+    }
+
+    return response.json();
+  }
+
+  async deleteShoppingItem(itemId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/items/${itemId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete item');
+    }
+
+    return response.json();
+  }
+
+  async getDiscoverRecipes(): Promise<{ recipes: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/discover/recipes`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get discover recipes');
+    }
+
+    return response.json();
+  }
+
+  async getSavedRecipes(): Promise<{ saved_recipes: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/user-recipes`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get saved recipes');
+    }
+
+    return response.json();
+  }
+
+  async unsaveRecipe(recipeId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}/save`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to unsave recipe');
+    }
+
+    return response.json();
+  }
+
+  async getSavedRecipesNew(): Promise<{ saved_recipes: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/saved-recipes`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get saved recipes');
+    }
+
+    return response.json();
+  }
+
+  async saveRecipeNew(recipeId: string, recipeData: any): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/saved-recipes`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({
+        recipe_id: recipeId,
+        recipe_data: recipeData
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save recipe');
+    }
+
+    return response.json();
+  }
+
+  async unsaveRecipeNew(recipeId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/saved-recipes?recipe_id=${recipeId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to unsave recipe');
+    }
+
+    return response.json();
+  }
+
+  async getRecipeDetails(recipeId: string): Promise<{ recipe: any }> {
+    const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}/details`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get recipe details');
+    }
+
+    return response.json();
+  }
+
+  async deleteAccount(): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/delete-account`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete account');
+    }
+
+    return response.json();
+  }
+
+  async changePassword(data: { current_password: string; new_password: string }): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to change password');
+    }
+
+    return response.json();
+  }
+
+  async getMealPlan(): Promise<{ meal_plan: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get meal plan');
+    }
+
+    return response.json();
+  }
+
+  async addToMealPlan(data: { recipe_id: string | number; recipe_name: string; day: string; meal_time: string; servings?: number; image?: string; time?: string }): Promise<{ message: string; meal: any }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add to meal plan');
+    }
+
+    return response.json();
+  }
+
+  async removeFromMealPlan(id: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plan?id=${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to remove from meal plan');
+    }
+
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();

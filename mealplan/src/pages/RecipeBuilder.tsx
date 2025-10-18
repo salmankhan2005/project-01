@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { apiService } from '@/services/api';
 
 export const RecipeBuilder = () => {
   const navigate = useNavigate();
@@ -33,23 +34,50 @@ export const RecipeBuilder = () => {
     setSteps(steps.filter((_, i) => i !== idx));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Please enter a recipe name');
       return;
     }
 
+    // Filter out empty ingredients and steps
+    const filteredIngredients = ingredients.filter(ing => ing.trim());
+    const filteredSteps = steps.filter(step => step.trim());
+
+    if (filteredIngredients.length === 0) {
+      toast.error('Please add at least one ingredient');
+      return;
+    }
+
+    if (filteredSteps.length === 0) {
+      toast.error('Please add at least one instruction step');
+      return;
+    }
+
     const newRecipe = {
-      id: Date.now(), // Simple ID generation
+      id: Date.now(),
       name: name.trim(),
       time: time.trim() || 'N/A',
       servings: parseInt(servings) || 1,
-      image: '🍽️', // Default emoji
+      image: '🍽️',
+      ingredients: filteredIngredients,
+      instructions: filteredSteps
     };
 
-    createRecipe(newRecipe);
-    toast.success('Recipe created successfully!');
-    navigate('/discover');
+    try {
+      if (isAuthenticated) {
+        // Save to database
+        await apiService.createRecipe(newRecipe);
+        toast.success('Recipe created and saved to your account!');
+      } else {
+        // Save locally for guest users
+        createRecipe(newRecipe);
+        toast.success('Recipe created and saved locally!');
+      }
+      navigate('/discover');
+    } catch (error) {
+      toast.error('Failed to save recipe. Please try again.');
+    }
   };
 
   return (

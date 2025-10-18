@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { InventoryAnimation } from '@/components/InventoryAnimation';
+import { apiService } from '@/services/api';
 
 const mockItems = [
   { id: 1, name: 'Chicken Breast', category: 'Meat', checked: false },
@@ -34,20 +35,79 @@ export const Shopping = () => {
   const [activeTab, setActiveTab] = useState('recent');
   const [allItems, setAllItems] = useState<typeof mockItems>([]);
   const [pastItems, setPastItems] = useState<typeof mockItems>([]);
+  const [recentItems, setRecentItems] = useState<any[]>([]);
   const [addItemLoading, setAddItemLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const toggleItem = (id: number) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, checked: !item.checked } : item
-    ));
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadShoppingData();
+    }
+  }, [isAuthenticated]);
+
+  const loadShoppingData = async () => {
+    try {
+      const [shoppingResponse, recentResponse] = await Promise.all([
+        apiService.getShoppingItems(),
+        apiService.getRecentItems()
+      ]);
+      
+      setItems(shoppingResponse.items.map(item => ({
+        id: item.id,
+        name: item.item_name,
+        category: item.category,
+        checked: item.is_completed
+      })));
+      
+      setRecentItems(recentResponse.recent_items);
+    } catch (error) {
+      console.error('Failed to load shopping data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteItem = (id: number) => {
-    setItems(items.filter(item => item.id !== id));
-    toast({
-      title: "Item removed",
-      description: "Item has been deleted from your list",
-    });
+  const toggleItem = async (id: number | string) => {
+    const item = items.find(item => item.id === id);
+    if (!item) return;
+    
+    try {
+      if (isAuthenticated) {
+        await apiService.updateShoppingItem(String(id), {
+          is_completed: !item.checked
+        });
+      }
+      
+      setItems(items.map(item => 
+        item.id === id ? { ...item, checked: !item.checked } : item
+      ));
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update item. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteItem = async (id: number | string) => {
+    try {
+      if (isAuthenticated) {
+        await apiService.deleteShoppingItem(String(id));
+      }
+      
+      setItems(items.filter(item => item.id !== id));
+      toast({
+        title: "Item removed",
+        description: "Item has been deleted from your list",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete item. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const addItem = async () => {
@@ -61,24 +121,89 @@ export const Shopping = () => {
     }
 
     setAddItemLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    try {
+      if (isAuthenticated) {
+        const response = await apiService.addShoppingItem({
+          item_name: newItemName.trim(),
+          category: newItemCategory,
+          quantity: 1,
+          unit: 'pcs'
+        });
+        
+        const newItem = {
+          id: response.item.id,
+          name: response.item.item_name,
+          category: response.item.category,
+          checked: response.item.is_completed
+        };
+        
+        setItems([newItem, ...items]);
+        
+        // Refresh recent items
+        const recentResponse = await apiService.getRecentItems();
+        setRecentItems(recentResponse.recent_items);
+      } else {
+        // Fallback for non-authenticated users
+        const newItem = {
+          id: Math.max(...items.map(i => i.id), 0) + 1,
+          name: newItemName.trim(),
+          category: newItemCategory,
+          checked: false,
+        };
+        setItems([...items, newItem]);
+      }
+      
+      setNewItemName('');
+      setNewItemCategory('');
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Item added",
+        description: `${newItemName} has been added to your list`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddItemLoading(false);
+    }
+  };
 
-    const newItem = {
-      id: Math.max(...items.map(i => i.id), 0) + 1,
-      name: newItemName.trim(),
-      category: newItemCategory,
-      checked: false,
-    };
-
-    setItems([...items, newItem]);
-    setNewItemName('');
-    setNewItemCategory('');
-    setIsDialogOpen(false);
-    setAddItemLoading(false);
-    toast({
-      title: "Item added",
-      description: `${newItem.name} has been added to your list`,
-    });
+  const addRecentItem = async (recentItem: any) => {
+    try {
+      if (isAuthenticated) {
+        const response = await apiService.addShoppingItem({
+          item_name: recentItem.item_name,
+          category: recentItem.category,
+          quantity: 1,
+          unit: 'pcs'
+        });
+        
+        const newItem = {
+          id: response.item.id,
+          name: response.item.item_name,
+          category: response.item.category,
+          checked: response.item.is_completed
+        };
+        
+        setItems([newItem, ...items]);
+        
+        toast({
+          title: "Item added",
+          description: `${recentItem.item_name} has been added to your list`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleDone = () => {
@@ -179,7 +304,40 @@ export const Shopping = () => {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'recent' && <ShoppingList />}
+        {activeTab === 'recent' && (
+          <div className="space-y-6">
+            <ShoppingList />
+            
+            {/* Recent Items Section */}
+            {recentItems.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Recent Items</h3>
+                <div className="space-y-2">
+                  {recentItems.map((item, idx) => (
+                    <GlowCard key={item.id} className="p-3 animate-fade-up bg-gradient-to-r from-muted/50 to-muted/30 hover:shadow-md" 
+                          style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.item_name}</p>
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => addRecentItem(item)}
+                          className="h-8 px-3"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </GlowCard>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {activeTab === 'all' && (
           <div className="space-y-6">
             <div className="space-y-3">
