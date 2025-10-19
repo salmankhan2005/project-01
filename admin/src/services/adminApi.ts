@@ -1,4 +1,4 @@
-const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://127.0.0.1:5001/api/admin';
+const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://127.0.0.1:5000/api/admin';
 
 interface AdminLoginData {
   email: string;
@@ -130,7 +130,6 @@ class AdminApiService {
 
   async getRegularUsers(): Promise<{ users: any[] }> {
     try {
-      // Use direct Supabase query to get real user data
       const response = await fetch('https://ewrdpygljsrmgyidqjok.supabase.co/rest/v1/users?select=id,email,name,created_at,updated_at', {
         headers: {
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3cmRweWdsanNybWd5aWRxam9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTk1MzUsImV4cCI6MjA3NjIzNTUzNX0.SXu--5GvHHt0EcPdaeP-q_0XRbYIM5oapk5Q2LRHaB4',
@@ -147,7 +146,6 @@ class AdminApiService {
       console.log('Direct Supabase query failed, using mock data');
     }
     
-    // Fallback to mock data with simulated real-time updates
     const now = new Date();
     const mockUsers = [
       { id: '1', name: 'John Doe', email: 'john@example.com', created_at: '2024-01-15T10:00:00Z', updated_at: new Date(now.getTime() - Math.random() * 3600000).toISOString() },
@@ -156,6 +154,57 @@ class AdminApiService {
     ];
     
     return { users: mockUsers };
+  }
+
+  async getAdminMealPlans(): Promise<{ meal_plans: any[] }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get meal plans');
+    }
+
+    return response.json();
+  }
+
+  async createAdminMealPlan(data: any): Promise<{ meal_plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create meal plan');
+    }
+
+    return response.json();
+  }
+
+  async updateAdminMealPlan(id: string, data: any): Promise<{ meal_plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update meal plan');
+    }
+
+    return response.json();
+  }
+
+  async deleteAdminMealPlan(id: string): Promise<void> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete meal plan');
+    }
   }
 
   // Recipe management methods
@@ -269,6 +318,49 @@ class AdminApiService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete meal plan');
+    }
+
+    return response.json();
+  }
+
+  // Subscription Plans
+  async getSubscriptionPlans(): Promise<{ plans: any[] }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/subscription-plans`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get subscription plans');
+    }
+
+    return response.json();
+  }
+
+  async createSubscriptionPlan(data: any): Promise<{ message: string; plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/subscription-plans`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create subscription plan');
+    }
+
+    return response.json();
+  }
+
+  async deleteSubscriptionPlan(planId: string): Promise<{ message: string }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/subscription-plans/${planId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete subscription plan');
     }
 
     return response.json();

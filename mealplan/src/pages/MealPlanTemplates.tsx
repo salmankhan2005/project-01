@@ -26,54 +26,23 @@ const MealPlanTemplates = () => {
 
   useEffect(() => {
     loadTemplates();
+    
+    // Set up polling to check for template updates every 30 seconds
+    const interval = setInterval(() => {
+      loadTemplates();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const loadTemplates = async () => {
     try {
       const adminTemplates = await mealPlanSyncService.getAdminTemplates();
       setTemplates(adminTemplates);
+      console.log('Templates loaded:', adminTemplates.length);
     } catch (error) {
       console.error('Failed to load templates:', error);
-      // Fallback templates
-      setTemplates([
-        {
-          id: 'admin_1',
-          name: '7-Day Mediterranean Plan',
-          description: 'Healthy Mediterranean diet with fresh ingredients and balanced nutrition',
-          week_start: '2024-01-01',
-          meals: {
-            Monday: {
-              Breakfast: { recipe_name: 'Greek Yogurt with Berries', servings: 1, image: '🥣' },
-              Lunch: { recipe_name: 'Mediterranean Salad', servings: 1, image: '🥗' },
-              Dinner: { recipe_name: 'Grilled Fish with Vegetables', servings: 1, image: '🐟' }
-            },
-            Tuesday: {
-              Breakfast: { recipe_name: 'Avocado Toast', servings: 1, image: '🥑' },
-              Lunch: { recipe_name: 'Hummus Bowl', servings: 1, image: '🍲' },
-              Dinner: { recipe_name: 'Chicken Souvlaki', servings: 1, image: '🍗' }
-            }
-          },
-          created_by: 'Admin',
-          is_admin_template: true,
-          created_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: 'admin_2',
-          name: 'Keto Weekly Plan',
-          description: 'Low-carb ketogenic meal plan for weight management',
-          week_start: '2024-01-01',
-          meals: {
-            Monday: {
-              Breakfast: { recipe_name: 'Keto Scrambled Eggs', servings: 1, image: '🍳' },
-              Lunch: { recipe_name: 'Avocado Chicken Salad', servings: 1, image: '🥗' },
-              Dinner: { recipe_name: 'Grilled Salmon', servings: 1, image: '🐟' }
-            }
-          },
-          created_by: 'Admin',
-          is_admin_template: true,
-          created_at: '2024-01-01T00:00:00Z'
-        }
-      ]);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -158,6 +127,9 @@ const MealPlanTemplates = () => {
           <h2 className="text-2xl font-bold">Admin Curated Meal Plans</h2>
           <p className="text-muted-foreground">
             Choose from professionally designed meal plans and apply them to your weekly schedule
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Templates update automatically when admins make changes
           </p>
         </div>
 

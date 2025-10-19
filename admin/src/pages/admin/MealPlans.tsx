@@ -43,19 +43,19 @@ const MealPlans = () => {
       if (editingPlan) {
         await adminApiService.updateAdminMealPlan(editingPlan.id, formData);
         setMealPlans(mealPlans.map(p => p.id === editingPlan.id ? { ...p, ...formData } : p));
-        toast({ title: "Meal Plan Updated", description: "Meal plan updated and synced to user apps" });
+        toast({ title: "Template Updated", description: "Meal plan template updated and synced to user apps" });
       } else {
         const response = await adminApiService.createAdminMealPlan(formData);
         setMealPlans([...mealPlans, response.meal_plan]);
-        toast({ title: "Meal Plan Created", description: "Meal plan created and synced to user apps" });
+        toast({ title: "Template Created", description: "Meal plan template created and available to users" });
       }
     } catch (error) {
       if (editingPlan) {
         setMealPlans(mealPlans.map(p => p.id === editingPlan.id ? { ...p, ...formData } : p));
-        toast({ title: "Meal Plan Updated", description: "Meal plan updated locally" });
+        toast({ title: "Template Updated", description: "Template updated locally" });
       } else {
         setMealPlans([...mealPlans, { id: Date.now(), ...formData, users: 0, createdBy: "Admin" }]);
-        toast({ title: "Meal Plan Created", description: "Meal plan created locally" });
+        toast({ title: "Template Created", description: "Template created locally" });
       }
     }
     setOpenDialog(false);
@@ -81,8 +81,8 @@ const MealPlans = () => {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold">Meal Plans</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Create and manage meal plan templates</p>
+          <h1 className="text-3xl md:text-4xl font-heading font-bold">Meal Plan Templates</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Create templates that users can apply to their meal plans</p>
         </div>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
@@ -169,43 +169,83 @@ const MealPlans = () => {
 const MealPlanForm = ({ plan, onSave }: { plan: any; onSave: (data: any) => void }) => {
   const [formData, setFormData] = useState({
     name: plan?.name || "",
-    duration: plan?.duration || "",
+    description: plan?.description || "",
     type: plan?.type || "Balanced",
-    status: plan?.status || "Draft"
+    status: plan?.status || "Active",
+    meals: plan?.meals || {
+      Monday: { Breakfast: { recipe_name: "", servings: 1, image: "🍽️" } },
+      Tuesday: { Breakfast: { recipe_name: "", servings: 1, image: "🍽️" } }
+    }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const templateData = {
+      ...formData,
+      week_start: '2024-01-01',
+      created_by: 'Admin',
+      is_admin_template: true
+    };
+    onSave(templateData);
+  };
+
+  const addMealDay = () => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const currentDays = Object.keys(formData.meals);
+    const nextDay = days.find(day => !currentDays.includes(day));
+    if (nextDay) {
+      setFormData({
+        ...formData,
+        meals: {
+          ...formData.meals,
+          [nextDay]: { Breakfast: { recipe_name: "", servings: 1, image: "🍽️" } }
+        }
+      });
+    }
+  };
+
+  const updateMeal = (day: string, mealTime: string, field: string, value: any) => {
+    setFormData({
+      ...formData,
+      meals: {
+        ...formData.meals,
+        [day]: {
+          ...formData.meals[day],
+          [mealTime]: {
+            ...formData.meals[day][mealTime],
+            [field]: value
+          }
+        }
+      }
+    });
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <DialogHeader>
-        <DialogTitle>{plan ? "Edit Meal Plan" : "Create Meal Plan"}</DialogTitle>
+        <DialogTitle>{plan ? "Edit Meal Plan Template" : "Create Meal Plan Template"}</DialogTitle>
         <DialogDescription>
-          {plan ? "Update meal plan details" : "Create a new meal plan template"}
+          {plan ? "Update template that users can apply" : "Create a template that users can apply to their meal plans"}
         </DialogDescription>
       </DialogHeader>
-      <div className="space-y-4 py-4">
+      <div className="space-y-4 py-4 max-h-96 overflow-y-auto">
         <div className="space-y-2">
-          <Label htmlFor="name">Plan Name</Label>
+          <Label htmlFor="name">Template Name</Label>
           <Input
             id="name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="7-Day Keto Plan"
+            placeholder="7-Day Mediterranean Plan"
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="duration">Duration</Label>
+          <Label htmlFor="description">Description</Label>
           <Input
-            id="duration"
-            value={formData.duration}
-            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            placeholder="7 days"
-            required
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="Healthy Mediterranean diet with fresh ingredients"
           />
         </div>
         <div className="space-y-2">
@@ -217,30 +257,48 @@ const MealPlanForm = ({ plan, onSave }: { plan: any; onSave: (data: any) => void
             <SelectContent>
               <SelectItem value="Balanced">Balanced</SelectItem>
               <SelectItem value="Keto">Keto</SelectItem>
+              <SelectItem value="Mediterranean">Mediterranean</SelectItem>
               <SelectItem value="Vegan">Vegan</SelectItem>
               <SelectItem value="Vegetarian">Vegetarian</SelectItem>
-              <SelectItem value="Mediterranean">Mediterranean</SelectItem>
               <SelectItem value="Low-Carb">Low-Carb</SelectItem>
-              <SelectItem value="High-Protein">High-Protein</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Draft">Draft</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
+        
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Meals</Label>
+            <Button type="button" size="sm" onClick={addMealDay}>Add Day</Button>
+          </div>
+          {Object.entries(formData.meals).map(([day, dayMeals]) => (
+            <div key={day} className="border rounded p-3 space-y-2">
+              <h4 className="font-medium">{day}</h4>
+              {Object.entries(dayMeals).map(([mealTime, mealData]: [string, any]) => (
+                <div key={mealTime} className="grid grid-cols-3 gap-2 text-sm">
+                  <Input
+                    placeholder={mealTime}
+                    value={mealData.recipe_name}
+                    onChange={(e) => updateMeal(day, mealTime, 'recipe_name', e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Servings"
+                    value={mealData.servings}
+                    onChange={(e) => updateMeal(day, mealTime, 'servings', parseInt(e.target.value) || 1)}
+                  />
+                  <Input
+                    placeholder="🍽️"
+                    value={mealData.image}
+                    onChange={(e) => updateMeal(day, mealTime, 'image', e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
       <DialogFooter>
-        <Button type="submit">{plan ? "Update" : "Create"} Plan</Button>
+        <Button type="submit">{plan ? "Update" : "Create"} Template</Button>
       </DialogFooter>
     </form>
   );

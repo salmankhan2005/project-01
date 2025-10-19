@@ -1,23 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Calendar, Download, Crown } from 'lucide-react';
+import { CreditCard, Calendar, Download, Crown, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiService } from '@/services/api';
 
-const billingHistory = [
-  { id: 1, date: '2024-01-15', amount: '$9.99', plan: 'Premium Monthly', status: 'Paid' },
-  { id: 2, date: '2023-12-15', amount: '$9.99', plan: 'Premium Monthly', status: 'Paid' },
-  { id: 3, date: '2023-11-15', amount: '$9.99', plan: 'Premium Monthly', status: 'Paid' }
-];
+
 
 export const Billing = () => {
   const navigate = useNavigate();
   const { isSubscribed } = useAuth();
   const [currentPlan] = useState('Premium Monthly');
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [billingHistory, setBillingHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    loadSubscriptionPlans();
+    
+    // Set up polling to check for plan updates every 30 seconds
+    const interval = setInterval(() => {
+      loadSubscriptionPlans();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  const loadSubscriptionPlans = async () => {
+    try {
+      // Load subscription plans (no auth required)
+      const plansResponse = await fetch('http://127.0.0.1:5000/api/subscription-plans');
+      const plansData = await plansResponse.json();
+      console.log('Plans response:', plansData);
+      setSubscriptionPlans(plansData.plans || []);
+      
+      // Load billing history (requires auth)
+      try {
+        const billingResponse = await apiService.request('/billing-history', { method: 'GET' });
+        setBillingHistory(billingResponse.billing_history || []);
+      } catch (billingError) {
+        console.log('Billing history not available (user not authenticated)');
+        setBillingHistory([]);
+      }
+    } catch (error) {
+      console.error('Failed to load subscription plans:', error);
+      setSubscriptionPlans([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -73,6 +108,46 @@ export const Billing = () => {
           <Button variant="outline" size="sm">Update Payment Method</Button>
         </Card>
 
+        {/* Available Plans */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Available Plans</h2>
+            <Badge variant="secondary" className="text-xs">
+              Updates automatically
+            </Badge>
+          </div>
+          {loading ? (
+            <p className="text-muted-foreground">Loading plans...</p>
+          ) : subscriptionPlans.length === 0 ? (
+            <p className="text-muted-foreground">No subscription plans available</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {subscriptionPlans.map((plan) => (
+                <Card key={plan.id} className={`p-4 ${plan.name === 'Premium' ? 'border-primary' : ''}`}>
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-semibold">{plan.name}</h3>
+                    <div className="text-2xl font-bold">
+                      ${plan.price}
+                      <span className="text-sm font-normal text-muted-foreground">/{plan.interval}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    {plan.features.map((feature, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span className="text-sm">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full" size="sm">
+                    {plan.price === 0 ? 'Current Plan' : 'Subscribe'}
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+        
         {/* Billing History */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -82,25 +157,31 @@ export const Billing = () => {
               Export
             </Button>
           </div>
-          <div className="space-y-3">
-            {billingHistory.map((bill) => (
-              <div key={bill.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{bill.plan}</p>
-                    <p className="text-sm text-muted-foreground">{bill.date}</p>
+          {loading ? (
+            <p className="text-muted-foreground">Loading billing history...</p>
+          ) : billingHistory.length === 0 ? (
+            <p className="text-muted-foreground">No billing history available</p>
+          ) : (
+            <div className="space-y-3">
+              {billingHistory.map((bill) => (
+                <div key={bill.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{bill.plan}</p>
+                      <p className="text-sm text-muted-foreground">{bill.date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">${bill.amount}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {bill.status}
+                    </Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium">{bill.amount}</p>
-                  <Badge variant="secondary" className="text-xs">
-                    {bill.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </main>
 

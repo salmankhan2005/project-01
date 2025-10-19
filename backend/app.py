@@ -1711,18 +1711,40 @@ def admin_meal_plans():
             meal_plan_data = {
                 'name': data.get('name'),
                 'description': data.get('description', ''),
-                'week_start': data.get('week_start'),
+                'week_start': data.get('week_start', '2024-01-01'),
                 'meals': data.get('meals', {}),
-                'created_by': 'admin',
-                'status': data.get('status', 'active'),
+                'created_by': data.get('created_by', 'Admin'),
+                'status': data.get('status', 'Active'),
+                'is_admin_template': data.get('is_admin_template', True),
                 'created_at': datetime.now(timezone.utc).isoformat()
             }
             
             result = supabase.table('admin_meal_plans').insert(meal_plan_data).execute()
             
             if result.data:
+                # Also create template meals in meal_plans table for user access
+                template_id = f"template_admin_{result.data[0]['id']}"
+                meal_entries = []
+                
+                for day, day_meals in data.get('meals', {}).items():
+                    for meal_time, meal_data in day_meals.items():
+                        if meal_data.get('recipe_name'):  # Only add meals with names
+                            meal_entries.append({
+                                'user_id': None,  # Template meals have no user_id
+                                'recipe_id': f"template_{result.data[0]['id']}_{day}_{meal_time}",
+                                'recipe_name': meal_data.get('recipe_name'),
+                                'day': day,
+                                'meal_time': meal_time,
+                                'servings': meal_data.get('servings', 1),
+                                'image': meal_data.get('image', '🍽️'),
+                                'week': template_id
+                            })
+                
+                if meal_entries:
+                    supabase.table('meal_plans').insert(meal_entries).execute()
+                
                 return jsonify({
-                    'message': 'Meal plan created successfully',
+                    'message': 'Meal plan template created successfully',
                     'meal_plan': result.data[0]
                 }), 201
         
@@ -1753,14 +1775,45 @@ def admin_meal_plan_detail(plan_id):
             result = supabase.table('admin_meal_plans').update(update_data).eq('id', plan_id).execute()
             
             if result.data:
+                # Update template meals in meal_plans table
+                template_id = f"template_admin_{plan_id}"
+                
+                # Delete existing template meals
+                supabase.table('meal_plans').delete().eq('week', template_id).execute()
+                
+                # Create updated template meals
+                meal_entries = []
+                for day, day_meals in data.get('meals', {}).items():
+                    for meal_time, meal_data in day_meals.items():
+                        if meal_data.get('recipe_name'):  # Only add meals with names
+                            meal_entries.append({
+                                'user_id': None,
+                                'recipe_id': f"template_{plan_id}_{day}_{meal_time}",
+                                'recipe_name': meal_data.get('recipe_name'),
+                                'day': day,
+                                'meal_time': meal_time,
+                                'servings': meal_data.get('servings', 1),
+                                'image': meal_data.get('image', '🍽️'),
+                                'week': template_id
+                            })
+                
+                if meal_entries:
+                    supabase.table('meal_plans').insert(meal_entries).execute()
+                
                 return jsonify({
-                    'message': 'Meal plan updated successfully',
+                    'message': 'Meal plan template updated successfully',
                     'meal_plan': result.data[0]
                 }), 200
         
         elif request.method == 'DELETE':
+            # Delete from admin_meal_plans table
             supabase.table('admin_meal_plans').delete().eq('id', plan_id).execute()
-            return jsonify({'message': 'Meal plan deleted successfully'}), 200
+            
+            # Delete template meals from meal_plans table
+            template_id = f"template_admin_{plan_id}"
+            supabase.table('meal_plans').delete().eq('week', template_id).execute()
+            
+            return jsonify({'message': 'Meal plan template deleted successfully'}), 200
         
     except Exception as e:
         logging.error(f'Admin meal plan detail error: {e}')
@@ -1961,6 +2014,144 @@ def apply_meal_plan_template():
         logging.error(f'Apply template error: {e}')
         return jsonify({'error': 'Failed to apply template'}), 500
 
+# Subscription Plans endpoints
+@app.route('/api/admin/subscription-plans', methods=['GET', 'POST', 'OPTIONS'])
+def admin_subscription_plans():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'GET':
+            result = supabase.table('subscription_plans').select('*').order('price').execute()
+            return jsonify({'plans': result.data}), 200
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            plan_data = {
+                'name': data.get('name'),
+                'price': data.get('price'),
+                'interval': data.get('interval', 'month'),
+                'features': data.get('features', []),
+                'status': 'active',
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            result = supabase.table('subscription_plans').insert(plan_data).execute()
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Subscription plan created successfully',
+                    'plan': result.data[0]
+                }), 201
+        
+    except Exception as e:
+        logging.error(f'Admin subscription plans error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/subscription-plans/<plan_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def admin_subscription_plan_detail(plan_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'PUT':
+            data = request.get_json()
+            
+            update_data = {
+                'name': data.get('name'),
+                'price': data.get('price'),
+                'interval': data.get('interval'),
+                'features': data.get('features'),
+                'status': data.get('status'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            result = supabase.table('subscription_plans').update(update_data).eq('id', plan_id).execute()
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Subscription plan updated successfully',
+                    'plan': result.data[0]
+                }), 200
+        
+        elif request.method == 'DELETE':
+            supabase.table('subscription_plans').delete().eq('id', plan_id).execute()
+            return jsonify({'message': 'Subscription plan deleted successfully'}), 200
+        
+    except Exception as e:
+        logging.error(f'Admin subscription plan detail error: {e}')
+        return jsonify({'error': 'Subscription plan operation failed'}), 500
+
+@app.route('/api/subscription-plans', methods=['GET', 'OPTIONS'])
+def get_subscription_plans():
+    """Get subscription plans for users - no auth required"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # Try to get from database first
+        result = supabase.table('subscription_plans').select('*').eq('status', 'active').order('price').execute()
+        logging.info(f'Subscription plans from DB: {len(result.data)} plans found')
+        
+        if result.data:
+            return jsonify({'plans': result.data}), 200
+        else:
+            # If no plans in DB, return default plans
+            logging.info('No plans in DB, returning default plans')
+            default_plans = [
+                {'id': 1, 'name': 'Free', 'price': 0, 'interval': 'month', 'features': ['Basic meal planning', '5 recipes', 'Limited support'], 'status': 'active'},
+                {'id': 2, 'name': 'Basic', 'price': 9.99, 'interval': 'month', 'features': ['Advanced meal planning', '50 recipes', 'Email support'], 'status': 'active'},
+                {'id': 3, 'name': 'Premium', 'price': 19.99, 'interval': 'month', 'features': ['Unlimited meal planning', 'Unlimited recipes', 'Priority support'], 'status': 'active'}
+            ]
+            return jsonify({'plans': default_plans}), 200
+        
+    except Exception as e:
+        logging.error(f'Get subscription plans error: {e}')
+        # Return default plans if any error occurs
+        default_plans = [
+            {'id': 1, 'name': 'Free', 'price': 0, 'interval': 'month', 'features': ['Basic meal planning', '5 recipes', 'Limited support'], 'status': 'active'},
+            {'id': 2, 'name': 'Basic', 'price': 9.99, 'interval': 'month', 'features': ['Advanced meal planning', '50 recipes', 'Email support'], 'status': 'active'},
+            {'id': 3, 'name': 'Premium', 'price': 19.99, 'interval': 'month', 'features': ['Unlimited meal planning', 'Unlimited recipes', 'Priority support'], 'status': 'active'}
+        ]
+        return jsonify({'plans': default_plans}), 200
+
+@app.route('/api/billing-history', methods=['GET', 'OPTIONS'])
+def get_billing_history():
+    """Get user billing history"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        try:
+            result = supabase.table('billing_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+            return jsonify({'billing_history': result.data}), 200
+        except Exception as db_error:
+            # Return mock data if table doesn't exist
+            mock_history = [
+                {'id': 1, 'date': '2024-01-15', 'amount': 9.99, 'plan': 'Premium Monthly', 'status': 'Paid'},
+                {'id': 2, 'date': '2023-12-15', 'amount': 9.99, 'plan': 'Premium Monthly', 'status': 'Paid'},
+                {'id': 3, 'date': '2023-11-15', 'amount': 9.99, 'plan': 'Premium Monthly', 'status': 'Paid'}
+            ]
+            return jsonify({'billing_history': mock_history}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Get billing history error: {e}')
+        return jsonify({'error': 'Failed to get billing history'}), 500
+
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     port = int(os.getenv('PORT', 5000))
@@ -1969,4 +2160,5 @@ if __name__ == '__main__':
     print(f'Starting Flask server on http://{host}:{port}')
     print(f'Health check available at: http://{host}:{port}/api/health')
     print(f'Admin recipes available at: http://{host}:{port}/api/admin/recipes')
+    print(f'Subscription plans available at: http://{host}:{port}/api/subscription-plans')
     app.run(debug=debug_mode, port=port, host=host)
