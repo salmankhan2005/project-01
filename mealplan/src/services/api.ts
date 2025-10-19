@@ -599,6 +599,33 @@ class ApiService {
     return response.json();
   }
 
+  // Admin Meal Plan Templates
+  async getAdminMealPlanTemplates(): Promise<{ templates: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plans/admin-templates`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get meal plan templates');
+    }
+
+    return response.json();
+  }
+
+  async applyMealPlanTemplate(templateId: string, week: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/meal-plans/apply-template`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ template_id: templateId, week })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to apply meal plan template');
+    }
+
+    return response.json();
+  }
+
   // Recipe sync methods
   async getRecipeNotifications(): Promise<{ notifications: any[] }> {
     try {

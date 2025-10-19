@@ -35,51 +35,7 @@ class MealPlanSyncService {
       return response.templates || [];
     } catch (error) {
       console.error('Failed to get admin templates:', error);
-      // Return fallback templates
-      return [
-        {
-          id: 'template_admin_mediterranean',
-          name: '7-Day Mediterranean Plan',
-          description: 'Healthy Mediterranean diet with fresh ingredients',
-          week_start: '2024-01-01',
-          meals: {
-            'Monday': {
-              'Breakfast': { recipe_name: 'Greek Yogurt with Berries', servings: 1, image: '🥣' },
-              'Lunch': { recipe_name: 'Mediterranean Salad', servings: 1, image: '🥗' },
-              'Dinner': { recipe_name: 'Grilled Fish with Vegetables', servings: 1, image: '🐟' }
-            },
-            'Tuesday': {
-              'Breakfast': { recipe_name: 'Avocado Toast', servings: 1, image: '🥑' },
-              'Lunch': { recipe_name: 'Hummus Bowl', servings: 1, image: '🍲' },
-              'Dinner': { recipe_name: 'Chicken Souvlaki', servings: 1, image: '🍗' }
-            }
-          },
-          created_by: 'Admin',
-          is_admin_template: true,
-          created_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: 'template_admin_keto',
-          name: 'Keto Weekly Plan',
-          description: 'Low-carb ketogenic meal plan for weight management',
-          week_start: '2024-01-01',
-          meals: {
-            'Monday': {
-              'Breakfast': { recipe_name: 'Keto Scrambled Eggs', servings: 1, image: '🍳' },
-              'Lunch': { recipe_name: 'Avocado Chicken Salad', servings: 1, image: '🥗' },
-              'Dinner': { recipe_name: 'Grilled Salmon with Asparagus', servings: 1, image: '🐟' }
-            },
-            'Tuesday': {
-              'Breakfast': { recipe_name: 'Bacon and Eggs', servings: 1, image: '🥓' },
-              'Lunch': { recipe_name: 'Keto Caesar Salad', servings: 1, image: '🥗' },
-              'Dinner': { recipe_name: 'Beef Steak with Butter', servings: 1, image: '🥩' }
-            }
-          },
-          created_by: 'Admin',
-          is_admin_template: true,
-          created_at: '2024-01-01T00:00:00Z'
-        }
-      ];
+      return [];
     }
   }
 

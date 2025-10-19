@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,38 +8,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { CreditCard, Plus, Edit, Trash2, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { adminApiService } from "@/services/adminApi";
 
 const SubscriptionPlans = () => {
   const { toast } = useToast();
-  const [plans, setPlans] = useState([
-    { 
-      id: 1, 
-      name: "Free", 
-      price: 0, 
-      interval: "month", 
-      features: ["Basic meal planning", "5 recipes", "Limited support"], 
-      status: "Active",
-      subscribers: 1250
-    },
-    { 
-      id: 2, 
-      name: "Basic", 
-      price: 9.99, 
-      interval: "month", 
-      features: ["Advanced meal planning", "50 recipes", "Email support", "Shopping lists"], 
-      status: "Active",
-      subscribers: 450
-    },
-    { 
-      id: 3, 
-      name: "Premium", 
-      price: 19.99, 
-      interval: "month", 
-      features: ["Unlimited meal planning", "Unlimited recipes", "Priority support", "AI recommendations", "Custom themes"], 
-      status: "Active",
-      subscribers: 180
-    },
-  ]);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    loadPlans();
+  }, []);
+  
+  const loadPlans = async () => {
+    try {
+      const response = await adminApiService.getSubscriptionPlans();
+      setPlans(response.plans);
+    } catch (error) {
+      console.error('Failed to load plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -50,23 +39,35 @@ const SubscriptionPlans = () => {
 
   const [openDialog, setOpenDialog] = useState(false);
 
-  const handleCreatePlan = (e: React.FormEvent) => {
+  const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newPlan = {
-      id: Date.now(),
-      name: formData.name,
-      price: parseFloat(formData.price),
-      interval: formData.interval,
-      features: formData.features.split('\n').filter(f => f.trim()),
-      status: "Active",
-      subscribers: 0
-    };
-
-    setPlans([...plans, newPlan]);
-    setFormData({ name: "", price: "", interval: "month", features: "" });
-    setOpenDialog(false);
-    toast({ title: "Success", description: "Subscription plan created successfully" });
+    try {
+      const planData = {
+        name: formData.name,
+        price: parseFloat(formData.price),
+        interval: formData.interval,
+        features: formData.features.split('\n').filter(f => f.trim())
+      };
+      
+      await adminApiService.createSubscriptionPlan(planData);
+      await loadPlans();
+      setFormData({ name: "", price: "", interval: "month", features: "" });
+      setOpenDialog(false);
+      toast({ title: "Success", description: "Subscription plan created successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create subscription plan" });
+    }
+  };
+  
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      await adminApiService.deleteSubscriptionPlan(planId);
+      await loadPlans();
+      toast({ title: "Success", description: "Subscription plan deleted successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete subscription plan" });
+    }
   };
 
   return (
@@ -144,7 +145,7 @@ const SubscriptionPlans = () => {
                 ${plan.price}
                 <span className="text-sm font-normal text-muted-foreground">/{plan.interval}</span>
               </div>
-              <p className="text-sm text-muted-foreground">{plan.subscribers} subscribers</p>
+
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -161,7 +162,7 @@ const SubscriptionPlans = () => {
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => handleDeletePlan(plan.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -170,31 +171,7 @@ const SubscriptionPlans = () => {
         ))}
       </div>
 
-      {/* Plan Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Plan Statistics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 border rounded-lg">
-              <p className="text-2xl font-bold">{plans.reduce((sum, p) => sum + p.subscribers, 0)}</p>
-              <p className="text-sm text-muted-foreground">Total Subscribers</p>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <p className="text-2xl font-bold">${plans.reduce((sum, p) => sum + (p.price * p.subscribers), 0).toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <p className="text-2xl font-bold">{plans.length}</p>
-              <p className="text-sm text-muted-foreground">Active Plans</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };
