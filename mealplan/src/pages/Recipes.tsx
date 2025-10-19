@@ -27,6 +27,71 @@ const relevantRecipes = [
   { id: 6, name: 'Pasta Primavera', image: '🍝', time: '25 min', servings: 3, category: 'Dinner' },
 ];
 
+// Admin Recipes Component
+const AdminRecipesSection = () => {
+  const [adminRecipes, setAdminRecipes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadAdminRecipes();
+  }, []);
+
+  const loadAdminRecipes = async () => {
+    try {
+      const response = await apiService.getAdminRecipes();
+      setAdminRecipes(response.recipes || []);
+    } catch (error) {
+      console.log('Admin recipes not available');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || adminRecipes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mb-8 mt-12">
+      <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
+        Admin Recipes ({adminRecipes.length})
+      </h3>
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {adminRecipes.map((recipe, idx) => (
+          <GlowCard
+            key={`admin-${recipe.id}-${idx}`}
+            className="p-3 sm:p-4 hover:shadow-xl hover:-translate-y-2 animate-fade-up bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20"
+            style={{ animationDelay: `${idx * 0.05}s` }}
+          >
+            <Link to={`/recipe/${recipe.id}`} className="block">
+              <div className="flex gap-3 sm:gap-4">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-muted rounded-xl sm:rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shrink-0">
+                  {recipe.image || '🍽️'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name || recipe.title}</h4>
+                  <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {recipe.time || `${recipe.cook_time || 30} min`}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {recipe.servings} servings
+                    </span>
+                  </div>
+
+                </div>
+              </div>
+            </Link>
+          </GlowCard>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -54,6 +119,21 @@ export const Recipes = () => {
     } else {
       setLoading(false);
     }
+    
+    // Set up polling for admin recipe updates
+    const interval = setInterval(async () => {
+      try {
+        const adminRecipes = await apiService.getAdminRecipes();
+        // Update any admin recipes in the current view
+        if (adminRecipes.recipes && adminRecipes.recipes.length > 0) {
+          // This could trigger a re-render if admin recipes are displayed
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
+    }, 60000); // Poll every minute
+    
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   const loadSavedRecipes = async () => {
@@ -224,6 +304,9 @@ export const Recipes = () => {
         <div className="mb-12 sm:mb-16 flex justify-center px-4 py-6">
           <LottieAnimation className="w-48 h-32" />
         </div>
+
+        {/* Admin Recipes Section */}
+        <AdminRecipesSection />
 
         {/* My Recipes (Crafted Meals) */}
         {isAuthenticated && userRecipes.length > 0 && (

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock, Lock, Edit2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock, Lock, Edit2, Sparkles } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
@@ -462,13 +462,23 @@ export const Home = () => {
       <main className="container-responsive py-6 space-y-6">
 
         
-        {/* Plan your month button */}
-        <Button 
-          className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-          onClick={() => setPlanMonthOpen(true)}
-        >
-          Plan your month
-        </Button>
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button 
+            className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+            onClick={() => setPlanMonthOpen(true)}
+          >
+            Plan your month
+          </Button>
+          
+          <Button 
+            className="w-full bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-secondary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+            onClick={() => navigate('/meal-plan-templates')}
+          >
+            <Sparkles className="w-5 h-5" />
+            Browse Templates
+          </Button>
+        </div>
 
         {/* View Toggle */}
         <div className="flex gap-2 bg-muted/50 rounded-full p-1">

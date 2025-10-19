@@ -38,6 +38,8 @@ import { Analytics } from "./pages/Analytics";
 import { Support } from "./pages/Support";
 import { EmailSettings } from "./pages/EmailSettings";
 import { AdminNotifications } from "./pages/AdminNotifications";
+import MealPlanTemplates from "./pages/MealPlanTemplates";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +90,8 @@ const AppRoutes = () => {
       <Route path="/admin-notifications" element={<ProtectedRoute><AdminNotifications /></ProtectedRoute>} />
       <Route path="/meal-sharing" element={<ProtectedRoute><MealSharing /></ProtectedRoute>} />
       <Route path="/client-view" element={<ProtectedRoute><ClientView /></ProtectedRoute>} />
+      <Route path="/meal-plan-templates" element={<ProtectedRoute><MealPlanTemplates /></ProtectedRoute>} />
+
       
       <Route path="*" element={<NotFound />} />
     </Routes>

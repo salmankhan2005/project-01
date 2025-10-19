@@ -319,6 +319,7 @@ class ApiService {
   }
 
   async getDiscoverRecipes(): Promise<{ recipes: any[] }> {
+    // Always use the main backend which includes admin recipes
     const response = await fetch(`${API_BASE_URL}/discover/recipes`, {
       headers: this.getAuthHeaders()
     });
@@ -597,7 +598,71 @@ class ApiService {
 
     return response.json();
   }
+
+  // Recipe sync methods
+  async getRecipeNotifications(): Promise<{ notifications: any[] }> {
+    try {
+      const response = await fetch('http://127.0.0.1:5001/api/admin/recipes/sync', {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (error) {
+      console.log('Recipe notifications not available');
+    }
+    
+    return { notifications: [] };
+  }
+
+  async getAdminRecipes(): Promise<{ recipes: any[] }> {
+    try {
+      const response = await fetch('http://127.0.0.1:5001/api/admin/recipes/discover', {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (error) {
+      console.log('Admin recipes not available');
+    }
+    
+    return { recipes: [] };
+  }
+
+  // Generic request method for meal plan sync service
+  async request(endpoint: string, options: RequestInit = {}): Promise<any> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...this.getAuthHeaders(),
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `Request failed with status ${response.status}`);
+    }
+
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();
-export { recipeService } from './recipeService';
+
+// Recipe service for backward compatibility
+export const recipeService = {
+  async getRecipes() {
+    return apiService.getRecipes();
+  },
+  async createRecipe(recipe: Recipe) {
+    return apiService.createRecipe(recipe);
+  },
+  async deleteRecipe(id: number | string) {
+    return apiService.deleteRecipe(id);
+  }
+};

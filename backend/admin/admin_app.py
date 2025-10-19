@@ -9,6 +9,18 @@ from datetime import datetime, timedelta, timezone
 import logging
 import hashlib
 import secrets
+import sys
+sys.path.append('.')
+try:
+    from admin_recipe_sync import sync_recipe_to_discover, notify_meal_plan_apps
+except ImportError:
+    def sync_recipe_to_discover(*args, **kwargs): pass
+    def notify_meal_plan_apps(*args, **kwargs): pass
+
+try:
+    from meal_plan_sync import sync_meal_plan_to_users
+except ImportError:
+    def sync_meal_plan_to_users(*args, **kwargs): pass
 
 load_dotenv()
 
@@ -180,6 +192,148 @@ def admin_logout():
         logging.error(f'Logout error: {e}')
         return jsonify({'error': 'Logout failed'}), 500
 
+# Recipe Management Endpoints
+@app.route('/api/admin/recipes', methods=['GET', 'POST', 'OPTIONS'])
+def admin_recipes():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if request.method == 'GET':
+            # Get all admin recipes
+            result = supabase.table('admin_recipes').select('*').order('created_at', desc=True).execute()
+            return jsonify({'recipes': result.data}), 200
+            
+        elif request.method == 'POST':
+            # Create new recipe
+            data = request.get_json()
+            
+            if not data.get('title'):
+                return jsonify({'error': 'Recipe title is required'}), 400
+            
+            recipe_data = {
+                'title': data.get('title'),
+                'description': data.get('description', ''),
+                'ingredients': data.get('ingredients', []),
+                'instructions': data.get('instructions', []),
+                'cook_time': data.get('cook_time', 30),
+                'servings': data.get('servings', 1),
+                'difficulty': data.get('difficulty', 'medium'),
+                'category': data.get('category', 'Main'),
+                'image': data.get('image', '🍽️'),
+                'author': data.get('author', 'Admin'),
+                'status': data.get('status', 'published'),
+
+                'created_by': payload['admin_id'],
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'is_admin_recipe': True
+            }
+            
+            # Insert recipe
+            result = supabase.table('admin_recipes').insert(recipe_data).execute()
+            
+            if result.data:
+                recipe = result.data[0]
+                try:
+                    # Sync to discover page
+                    sync_recipe_to_discover(recipe, 'create')
+                    # Notify meal plan apps
+                    notify_meal_plan_apps(recipe, 'create')
+                    logging.info(f'Recipe {recipe["title"]} synced successfully')
+                except Exception as sync_error:
+                    logging.error(f'Sync failed: {sync_error}')
+                
+                return jsonify({
+                    'message': 'Recipe created and synced successfully',
+                    'recipe': recipe
+                }), 201
+        
+    except Exception as e:
+        logging.error(f'Admin recipes error: {e}')
+        return jsonify({'error': 'Recipe operation failed'}), 500
+
+@app.route('/api/admin/recipes/<recipe_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def admin_recipe_detail(recipe_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if request.method == 'PUT':
+            # Update recipe
+            data = request.get_json()
+            
+            update_data = {
+                'title': data.get('title'),
+                'description': data.get('description'),
+                'ingredients': data.get('ingredients'),
+                'instructions': data.get('instructions'),
+                'cook_time': data.get('cook_time'),
+                'servings': data.get('servings'),
+                'difficulty': data.get('difficulty'),
+                'category': data.get('category'),
+                'image': data.get('image'),
+                'author': data.get('author'),
+                'status': data.get('status'),
+
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Remove None values
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            result = supabase.table('admin_recipes').update(update_data).eq('id', recipe_id).execute()
+            
+            if result.data:
+                recipe = result.data[0]
+                try:
+                    # Sync to discover page
+                    sync_recipe_to_discover(recipe, 'update')
+                    # Notify meal plan apps
+                    notify_meal_plan_apps(recipe, 'update')
+                    logging.info(f'Recipe {recipe["title"]} updated and synced')
+                except Exception as sync_error:
+                    logging.error(f'Update sync failed: {sync_error}')
+                
+                return jsonify({
+                    'message': 'Recipe updated and synced successfully',
+                    'recipe': recipe
+                }), 200
+        
+        elif request.method == 'DELETE':
+            # Get recipe before deletion for sync
+            recipe_result = supabase.table('admin_recipes').select('*').eq('id', recipe_id).execute()
+            
+            if recipe_result.data:
+                recipe = recipe_result.data[0]
+                
+                # Delete recipe
+                supabase.table('admin_recipes').delete().eq('id', recipe_id).execute()
+                
+                # Sync deletion to discover page
+                sync_recipe_to_discover(recipe, 'delete')
+                # Notify meal plan apps
+                notify_meal_plan_apps(recipe, 'delete')
+                
+                return jsonify({'message': 'Recipe deleted and synced successfully'}), 200
+            else:
+                return jsonify({'error': 'Recipe not found'}), 404
+        
+    except Exception as e:
+        logging.error(f'Admin recipe detail error: {e}')
+        return jsonify({'error': 'Recipe operation failed'}), 500
+
 @app.route('/api/admin/users', methods=['GET', 'OPTIONS'])
 def get_admin_users():
     if request.method == 'OPTIONS':
@@ -262,11 +416,119 @@ def create_admin_user():
         logging.error(f'Create admin error: {e}')
         return jsonify({'error': 'Failed to create admin'}), 500
 
+# Recipe sync endpoints for meal plan apps
+@app.route('/api/admin/recipes/sync', methods=['GET', 'OPTIONS'])
+def get_recipe_notifications():
+    """Get recipe change notifications for meal plan apps"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # Get recent notifications
+        result = supabase.table('recipe_notifications').select('*').order('timestamp', desc=True).limit(50).execute()
+        return jsonify({'notifications': result.data}), 200
+        
+    except Exception as e:
+        logging.error(f'Get notifications error: {e}')
+        return jsonify({'error': 'Failed to get notifications'}), 500
+
+@app.route('/api/admin/recipes/discover', methods=['GET', 'OPTIONS'])
+def get_discover_recipes():
+    """Get all admin recipes for discover page"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # Get admin recipes
+        result = supabase.table('admin_recipes').select('*').order('created_at', desc=True).execute()
+        
+        # Format for discover page
+        recipes = []
+        for recipe in result.data:
+            formatted_recipe = {
+                'id': recipe['id'],
+                'name': recipe['title'],
+                'title': recipe['title'],
+                'time': f"{recipe.get('cook_time', 30)} min",
+                'servings': recipe.get('servings', 1),
+                'image': recipe.get('image', '🍽️'),
+                'ingredients': recipe.get('ingredients', []),
+                'instructions': recipe.get('instructions', []),
+                'difficulty': recipe.get('difficulty', 'medium'),
+                'category': recipe.get('category', 'Main'),
+                'author': recipe.get('author', 'Admin'),
+                'created_at': recipe.get('created_at')
+            }
+            recipes.append(formatted_recipe)
+        
+        return jsonify({'recipes': recipes}), 200
+        
+    except Exception as e:
+        logging.error(f'Get discover recipes error: {e}')
+        return jsonify({'error': 'Failed to get discover recipes'}), 500
+
+# Admin Meal Plan Management Endpoints
+@app.route('/api/admin/meal-plans', methods=['GET', 'POST', 'OPTIONS'])
+def admin_meal_plans():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if request.method == 'GET':
+            # Get all admin meal plans
+            result = supabase.table('admin_meal_plans').select('*').order('created_at', desc=True).execute()
+            return jsonify({'meal_plans': result.data}), 200
+            
+        elif request.method == 'POST':
+            # Create new meal plan
+            data = request.get_json()
+            
+            if not data.get('name'):
+                return jsonify({'error': 'Meal plan name is required'}), 400
+            
+            meal_plan_data = {
+                'name': data.get('name'),
+                'description': data.get('description', ''),
+                'week_start': data.get('week_start'),
+                'meals': data.get('meals', {}),
+                'created_by': payload['admin_id'],
+                'status': data.get('status', 'active'),
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Insert meal plan
+            result = supabase.table('admin_meal_plans').insert(meal_plan_data).execute()
+            
+            if result.data:
+                meal_plan = result.data[0]
+                try:
+                    # Sync to user apps
+                    sync_meal_plan_to_users(meal_plan, 'create')
+                    logging.info(f'Meal plan {meal_plan["name"]} synced to user apps')
+                except Exception as sync_error:
+                    logging.error(f'Meal plan sync failed: {sync_error}')
+                
+                return jsonify({
+                    'message': 'Meal plan created and synced successfully',
+                    'meal_plan': meal_plan
+                }), 201
+        
+    except Exception as e:
+        logging.error(f'Admin meal plans error: {e}')
+        return jsonify({'error': 'Meal plan operation failed'}), 500
+
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    port = int(os.getenv('ADMIN_PORT', 5001))
+    port = int(os.getenv('ADMIN_PORT', 5001))  # Use different port for admin
     host = os.getenv('HOST', '127.0.0.1')
     
     print(f'Starting Admin Flask server on http://{host}:{port}')
     print(f'Health check available at: http://{host}:{port}/api/admin/health')
+    print(f'Recipe management available at: http://{host}:{port}/api/admin/recipes')
     app.run(debug=debug_mode, port=port, host=host)

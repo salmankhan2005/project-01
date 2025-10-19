@@ -22,6 +22,7 @@ export const More = () => {
 
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile', auth: true },
+
     { icon: BarChart3, label: 'Analytics', path: '/analytics', auth: true },
     { icon: CreditCard, label: 'Billing & Subscription', path: '/billing', auth: true },
     { icon: Mail, label: 'Email Settings', path: '/email-settings', auth: false },

@@ -1,4 +1,4 @@
-const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://127.0.0.1:5000/api/admin';
+const ADMIN_API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://127.0.0.1:5001/api/admin';
 
 interface AdminLoginData {
   email: string;
@@ -157,6 +157,165 @@ class AdminApiService {
     
     return { users: mockUsers };
   }
+
+  // Recipe management methods
+  async getAdminRecipes(): Promise<{ recipes: any[] }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/recipes`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get admin recipes');
+    }
+
+    return response.json();
+  }
+
+  async createAdminRecipe(data: any): Promise<{ message: string; recipe: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/recipes`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create recipe');
+    }
+
+    return response.json();
+  }
+
+  async updateAdminRecipe(recipeId: string, data: any): Promise<{ message: string; recipe: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/recipes/${recipeId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update recipe');
+    }
+
+    return response.json();
+  }
+
+  async deleteAdminRecipe(recipeId: string): Promise<{ message: string }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/recipes/${recipeId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete recipe');
+    }
+
+    return response.json();
+  }
+
+  // Meal Plans
+  async getAdminMealPlans(): Promise<{ meal_plans: any[] }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans`, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get meal plans');
+    }
+
+    return response.json();
+  }
+
+  async createAdminMealPlan(data: any): Promise<{ message: string; meal_plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create meal plan');
+    }
+
+    return response.json();
+  }
+
+  async updateAdminMealPlan(planId: string, data: any): Promise<{ message: string; meal_plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans/${planId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update meal plan');
+    }
+
+    return response.json();
+  }
+
+  async deleteAdminMealPlan(planId: string): Promise<{ message: string }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/meal-plans/${planId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete meal plan');
+    }
+
+    return response.json();
+  }
 }
 
 export const adminApiService = new AdminApiService();
+
+// Recipe sync service for real-time updates
+export class RecipeSyncService {
+  private eventSource: EventSource | null = null;
+  private listeners: ((data: any) => void)[] = [];
+
+  startListening() {
+    // In a real implementation, this would use Server-Sent Events or WebSockets
+    // For now, we'll poll for changes
+    setInterval(async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5001/api/admin/recipes/sync');
+        if (response.ok) {
+          const data = await response.json();
+          this.notifyListeners(data);
+        }
+      } catch (error) {
+        // Silently handle connection errors
+      }
+    }, 30000); // Poll every 30 seconds
+  }
+
+  addListener(callback: (data: any) => void) {
+    this.listeners.push(callback);
+  }
+
+  removeListener(callback: (data: any) => void) {
+    this.listeners = this.listeners.filter(l => l !== callback);
+  }
+
+  private notifyListeners(data: any) {
+    this.listeners.forEach(listener => listener(data));
+  }
+
+  stopListening() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+}
+
+export const recipeSyncService = new RecipeSyncService();

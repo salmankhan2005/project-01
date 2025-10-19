@@ -24,7 +24,7 @@ import Notifications from "./pages/admin/Notifications";
 import Settings from "./pages/admin/Settings";
 import Support from "./pages/admin/Support";
 import MealPlans from "./pages/admin/MealPlans";
-import Categories from "./pages/admin/Categories";
+
 import Reviews from "./pages/admin/Reviews";
 import Analytics from "./pages/admin/Analytics";
 import EmailTemplates from "./pages/admin/EmailTemplates";
@@ -97,7 +97,7 @@ const App = () => (
             <Route path="system-logs" element={<SuperAdminRoute><SystemLogs /></SuperAdminRoute>} />
             <Route path="recipes" element={<Recipes />} />
             <Route path="meal-plans" element={<MealPlans />} />
-            <Route path="categories" element={<Categories />} />
+
             <Route path="reviews" element={<Reviews />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="billing" element={<Billing />} />

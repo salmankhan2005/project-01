@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { adminApiService } from "@/services/adminApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,28 +16,61 @@ const MealPlans = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
 
-  const [mealPlans, setMealPlans] = useState([
-    { id: 1, name: "7-Day Keto Plan", duration: "7 days", type: "Keto", users: 234, status: "Active", createdBy: "Chef John" },
-    { id: 2, name: "Mediterranean Weekly", duration: "7 days", type: "Mediterranean", users: 456, status: "Active", createdBy: "Chef Maria" },
-    { id: 3, name: "Vegan 14-Day", duration: "14 days", type: "Vegan", users: 189, status: "Active", createdBy: "Chef Sarah" },
-    { id: 4, name: "Low-Carb Month", duration: "30 days", type: "Low-Carb", users: 78, status: "Draft", createdBy: "Chef Mike" },
-  ]);
+  const [mealPlans, setMealPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSavePlan = (formData: any) => {
-    if (editingPlan) {
-      setMealPlans(mealPlans.map(p => p.id === editingPlan.id ? { ...p, ...formData } : p));
-      toast({ title: "Meal Plan Updated", description: "Meal plan updated successfully" });
-    } else {
-      setMealPlans([...mealPlans, { id: Date.now(), ...formData, users: 0, createdBy: "Admin" }]);
-      toast({ title: "Meal Plan Created", description: "New meal plan created successfully" });
+  useEffect(() => {
+    loadMealPlans();
+  }, []);
+
+  const loadMealPlans = async () => {
+    try {
+      const response = await adminApiService.getAdminMealPlans();
+      setMealPlans(response.meal_plans || []);
+    } catch (error) {
+      console.log('Using fallback meal plan data');
+      setMealPlans([
+        { id: 1, name: "7-Day Keto Plan", duration: "7 days", type: "Keto", users: 234, status: "Active", createdBy: "Chef John" },
+        { id: 2, name: "Mediterranean Weekly", duration: "7 days", type: "Mediterranean", users: 456, status: "Active", createdBy: "Chef Maria" },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSavePlan = async (formData: any) => {
+    try {
+      if (editingPlan) {
+        await adminApiService.updateAdminMealPlan(editingPlan.id, formData);
+        setMealPlans(mealPlans.map(p => p.id === editingPlan.id ? { ...p, ...formData } : p));
+        toast({ title: "Meal Plan Updated", description: "Meal plan updated and synced to user apps" });
+      } else {
+        const response = await adminApiService.createAdminMealPlan(formData);
+        setMealPlans([...mealPlans, response.meal_plan]);
+        toast({ title: "Meal Plan Created", description: "Meal plan created and synced to user apps" });
+      }
+    } catch (error) {
+      if (editingPlan) {
+        setMealPlans(mealPlans.map(p => p.id === editingPlan.id ? { ...p, ...formData } : p));
+        toast({ title: "Meal Plan Updated", description: "Meal plan updated locally" });
+      } else {
+        setMealPlans([...mealPlans, { id: Date.now(), ...formData, users: 0, createdBy: "Admin" }]);
+        toast({ title: "Meal Plan Created", description: "Meal plan created locally" });
+      }
     }
     setOpenDialog(false);
     setEditingPlan(null);
   };
 
-  const handleDeletePlan = (id: number) => {
-    setMealPlans(mealPlans.filter(p => p.id !== id));
-    toast({ title: "Meal Plan Deleted", description: "Meal plan removed successfully" });
+  const handleDeletePlan = async (id: number) => {
+    try {
+      await adminApiService.deleteAdminMealPlan(String(id));
+      setMealPlans(mealPlans.filter(p => p.id !== id));
+      toast({ title: "Meal Plan Deleted", description: "Meal plan removed and synced to user apps" });
+    } catch (error) {
+      setMealPlans(mealPlans.filter(p => p.id !== id));
+      toast({ title: "Meal Plan Deleted", description: "Meal plan removed locally" });
+    }
   };
 
   const filteredPlans = mealPlans.filter((plan) =>

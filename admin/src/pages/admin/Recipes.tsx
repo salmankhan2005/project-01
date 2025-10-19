@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { adminApiService } from "@/services/adminApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ const Recipes = () => {
   const [editingRecipe, setEditingRecipe] = useState<any>(null);
 
   const [recipes, setRecipes] = useState([
+    // Keep existing mock data as fallback
     {
       id: 1,
       title: "Mediterranean Quinoa Bowl",
@@ -78,26 +80,70 @@ const Recipes = () => {
       image: caesarSalad,
     },
   ]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSaveRecipe = (formData: any) => {
-    if (editingRecipe) {
-      setRecipes(recipes.map(r => r.id === editingRecipe.id ? { ...r, ...formData } : r));
-      toast({ title: "Recipe Updated", description: "Recipe updated successfully" });
-    } else {
-      setRecipes([...recipes, { 
-        id: Date.now(), 
-        ...formData, 
-        image: quinoaBowl 
-      }]);
-      toast({ title: "Recipe Created", description: "New recipe added successfully" });
+  useEffect(() => {
+    loadRecipes();
+  }, []);
+
+  const loadRecipes = async () => {
+    try {
+      const response = await adminApiService.getAdminRecipes();
+      if (response.recipes && response.recipes.length > 0) {
+        setRecipes(response.recipes);
+      }
+    } catch (error) {
+      console.log('Using fallback recipe data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveRecipe = async (formData: any) => {
+    try {
+      if (editingRecipe) {
+        // Update existing recipe
+        const response = await adminApiService.updateAdminRecipe(editingRecipe.id, formData);
+        setRecipes(recipes.map(r => r.id === editingRecipe.id ? { ...r, ...formData } : r));
+        toast({ title: "Recipe Updated", description: "Recipe updated and synced to meal plan apps" });
+      } else {
+        // Create new recipe
+        const response = await adminApiService.createAdminRecipe(formData);
+        setRecipes([...recipes, { 
+          id: response.recipe.id, 
+          ...formData, 
+          image: formData.image || quinoaBowl 
+        }]);
+        toast({ title: "Recipe Created", description: "Recipe created and synced to meal plan apps" });
+      }
+    } catch (error) {
+      // Fallback to local state update
+      if (editingRecipe) {
+        setRecipes(recipes.map(r => r.id === editingRecipe.id ? { ...r, ...formData } : r));
+        toast({ title: "Recipe Updated", description: "Recipe updated locally" });
+      } else {
+        setRecipes([...recipes, { 
+          id: Date.now(), 
+          ...formData, 
+          image: formData.image || quinoaBowl 
+        }]);
+        toast({ title: "Recipe Created", description: "Recipe created locally" });
+      }
     }
     setOpenDialog(false);
     setEditingRecipe(null);
   };
 
-  const handleDeleteRecipe = (id: number) => {
-    setRecipes(recipes.filter(r => r.id !== id));
-    toast({ title: "Recipe Deleted", description: "Recipe removed successfully" });
+  const handleDeleteRecipe = async (id: number) => {
+    try {
+      await adminApiService.deleteAdminRecipe(String(id));
+      setRecipes(recipes.filter(r => r.id !== id));
+      toast({ title: "Recipe Deleted", description: "Recipe removed and synced to meal plan apps" });
+    } catch (error) {
+      // Fallback to local state update
+      setRecipes(recipes.filter(r => r.id !== id));
+      toast({ title: "Recipe Deleted", description: "Recipe removed locally" });
+    }
   };
 
   const filteredRecipes = recipes.filter((recipe) =>
@@ -154,7 +200,7 @@ const Recipes = () => {
                 </CardHeader>
                 <CardContent className="space-y-3 md:space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="text-xs">{recipe.category}</Badge>
+
                     <Badge
                       className="text-xs"
                       variant={
@@ -216,7 +262,7 @@ const Recipes = () => {
 const RecipeForm = ({ recipe, onSave }: { recipe: any; onSave: (data: any) => void }) => {
   const [formData, setFormData] = useState({
     title: recipe?.title || "",
-    category: recipe?.category || "Breakfast",
+
     difficulty: recipe?.difficulty || "Easy",
     cookTime: recipe?.cookTime || "",
     servings: recipe?.servings || 1,
@@ -263,34 +309,18 @@ const RecipeForm = ({ recipe, onSave }: { recipe: any; onSave: (data: any) => vo
             required
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Breakfast">Breakfast</SelectItem>
-                <SelectItem value="Lunch">Lunch</SelectItem>
-                <SelectItem value="Dinner">Dinner</SelectItem>
-                <SelectItem value="Snack">Snack</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="difficulty">Difficulty</Label>
-            <Select value={formData.difficulty} onValueChange={(value) => setFormData({ ...formData, difficulty: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Easy">Easy</SelectItem>
-                <SelectItem value="Medium">Medium</SelectItem>
-                <SelectItem value="Hard">Hard</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="difficulty">Difficulty</Label>
+          <Select value={formData.difficulty} onValueChange={(value) => setFormData({ ...formData, difficulty: value })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Easy">Easy</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Hard">Hard</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">

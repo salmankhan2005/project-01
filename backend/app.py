@@ -13,11 +13,7 @@ load_dotenv()
 
 app = Flask(__name__)
 # Configure CORS
-CORS(app, 
-     origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'],
-     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
-     allow_headers=['Content-Type', 'Authorization'],
-     supports_credentials=True)
+CORS(app, origins='*', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type', 'Authorization'])
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -760,40 +756,70 @@ def get_discover_recipes():
         return '', 200
     
     try:
-        # Get all recipes for discover page
-        recipes_result = supabase.table('recipes').select('*').order('created_at', desc=True).limit(50).execute()
+        # Get admin recipes first
+        admin_recipes = []
+        try:
+            admin_result = supabase.table('admin_recipes').select('*').order('created_at', desc=True).execute()
+            for recipe in admin_result.data:
+                formatted_recipe = {
+                    'id': f"admin_{recipe['id']}",
+                    'name': recipe.get('title', 'Untitled Recipe'),
+                    'title': recipe.get('title', 'Untitled Recipe'),
+                    'time': f"{recipe.get('cook_time', 30)} min",
+                    'servings': recipe.get('servings', 1),
+                    'image': recipe.get('image', '🍽️'),
+                    'ingredients': recipe.get('ingredients', []),
+                    'instructions': recipe.get('instructions', []),
+                    'difficulty': recipe.get('difficulty', 'medium'),
+                    'tags': recipe.get('tags', []),
+                    'author': 'By Admin',
+                    'is_admin_recipe': True,
+                    'created_at': recipe.get('created_at')
+                }
+                admin_recipes.append(formatted_recipe)
+        except Exception as admin_error:
+            logging.warning(f'Failed to get admin recipes: {admin_error}')
         
-        # Format recipes for discover page
-        recipes = []
-        for recipe in recipes_result.data:
-            # Get user info separately
-            user_info = {}
-            try:
-                user_result = supabase.table('users').select('name, email').eq('id', recipe['user_id']).execute()
-                if user_result.data:
-                    user_info = user_result.data[0]
-            except:
-                pass
+        # Get user recipes
+        user_recipes = []
+        try:
+            recipes_result = supabase.table('recipes').select('*').order('created_at', desc=True).limit(30).execute()
             
-            time_display = "30 min"  # Always show default time
-            
-            formatted_recipe = {
-                'id': recipe['id'],
-                'name': recipe.get('title', 'Untitled Recipe'),
-                'title': recipe.get('title', 'Untitled Recipe'),
-                'time': time_display,
-                'servings': recipe.get('servings', 1),
-                'image': recipe.get('image', '🍽️'),
-                'ingredients': recipe.get('ingredients', []),
-                'instructions': recipe.get('instructions', []),
-                'difficulty': recipe.get('difficulty', 'medium'),
-                'tags': recipe.get('tags', []),
-                'author': user_info.get('name') or (user_info.get('email', '').split('@')[0] if user_info.get('email') else 'Anonymous'),
-                'created_at': recipe.get('created_at')
-            }
-            recipes.append(formatted_recipe)
+            for recipe in recipes_result.data:
+                # Get user info separately
+                user_info = {}
+                try:
+                    user_result = supabase.table('users').select('name, email').eq('id', recipe['user_id']).execute()
+                    if user_result.data:
+                        user_info = user_result.data[0]
+                except:
+                    pass
+                
+                time_display = "30 min"  # Always show default time
+                
+                formatted_recipe = {
+                    'id': recipe['id'],
+                    'name': recipe.get('title', 'Untitled Recipe'),
+                    'title': recipe.get('title', 'Untitled Recipe'),
+                    'time': time_display,
+                    'servings': recipe.get('servings', 1),
+                    'image': recipe.get('image', '🍽️'),
+                    'ingredients': recipe.get('ingredients', []),
+                    'instructions': recipe.get('instructions', []),
+                    'difficulty': recipe.get('difficulty', 'medium'),
+                    'tags': recipe.get('tags', []),
+                    'author': f"By {user_info.get('name') or (user_info.get('email', '').split('@')[0] if user_info.get('email') else 'You')}",
+                    'is_admin_recipe': False,
+                    'created_at': recipe.get('created_at')
+                }
+                user_recipes.append(formatted_recipe)
+        except Exception as user_error:
+            logging.warning(f'Failed to get user recipes: {user_error}')
         
-        return jsonify({'recipes': recipes}), 200
+        # Combine admin recipes first, then user recipes
+        all_recipes = admin_recipes + user_recipes
+        
+        return jsonify({'recipes': all_recipes}), 200
         
     except Exception as e:
         logging.error(f'Get discover recipes error: {e}')
@@ -1578,6 +1604,363 @@ def get_regular_users():
         logging.error(f'Get all users error: {e}')
         return jsonify({'error': 'Failed to get users'}), 500
 
+# Admin recipe endpoints
+@app.route('/api/admin/recipes', methods=['GET', 'POST', 'OPTIONS'])
+def admin_recipes():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'GET':
+            result = supabase.table('admin_recipes').select('*').order('created_at', desc=True).execute()
+            return jsonify({'recipes': result.data}), 200
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            if not data.get('title'):
+                return jsonify({'error': 'Recipe title is required'}), 400
+            
+            recipe_data = {
+                'title': data.get('title'),
+                'description': data.get('description', ''),
+                'ingredients': data.get('ingredients', []),
+                'instructions': data.get('instructions', []),
+                'cook_time': data.get('cook_time', 30),
+                'servings': data.get('servings', 1),
+                'difficulty': data.get('difficulty', 'medium'),
+                'category': data.get('category', 'Main'),
+                'image': data.get('image', '🍽️'),
+                'author': data.get('author', 'Admin'),
+                'status': data.get('status', 'published'),
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'is_admin_recipe': True
+            }
+            
+            result = supabase.table('admin_recipes').insert(recipe_data).execute()
+            logging.info(f'Insert result: {result}')
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Recipe created successfully',
+                    'recipe': result.data[0]
+                }), 201
+            else:
+                return jsonify({'error': 'Failed to insert recipe'}), 500
+        
+    except Exception as e:
+        logging.error(f'Admin recipes error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/recipes/<recipe_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def admin_recipe_detail(recipe_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'PUT':
+            data = request.get_json()
+            
+            update_data = {
+                'title': data.get('title'),
+                'description': data.get('description'),
+                'ingredients': data.get('ingredients'),
+                'instructions': data.get('instructions'),
+                'cook_time': data.get('cook_time'),
+                'servings': data.get('servings'),
+                'difficulty': data.get('difficulty'),
+                'category': data.get('category'),
+                'image': data.get('image'),
+                'author': data.get('author'),
+                'status': data.get('status'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            result = supabase.table('admin_recipes').update(update_data).eq('id', recipe_id).execute()
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Recipe updated successfully',
+                    'recipe': result.data[0]
+                }), 200
+        
+        elif request.method == 'DELETE':
+            supabase.table('admin_recipes').delete().eq('id', recipe_id).execute()
+            return jsonify({'message': 'Recipe deleted successfully'}), 200
+        
+    except Exception as e:
+        logging.error(f'Admin recipe detail error: {e}')
+        return jsonify({'error': 'Recipe operation failed'}), 500
+
+# Admin meal plan endpoints
+@app.route('/api/admin/meal-plans', methods=['GET', 'POST', 'OPTIONS'])
+def admin_meal_plans():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'GET':
+            result = supabase.table('admin_meal_plans').select('*').order('created_at', desc=True).execute()
+            return jsonify({'meal_plans': result.data}), 200
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            meal_plan_data = {
+                'name': data.get('name'),
+                'description': data.get('description', ''),
+                'week_start': data.get('week_start'),
+                'meals': data.get('meals', {}),
+                'created_by': 'admin',
+                'status': data.get('status', 'active'),
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            result = supabase.table('admin_meal_plans').insert(meal_plan_data).execute()
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Meal plan created successfully',
+                    'meal_plan': result.data[0]
+                }), 201
+        
+    except Exception as e:
+        logging.error(f'Admin meal plans error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/meal-plans/<plan_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def admin_meal_plan_detail(plan_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if request.method == 'PUT':
+            data = request.get_json()
+            
+            update_data = {
+                'name': data.get('name'),
+                'description': data.get('description'),
+                'week_start': data.get('week_start'),
+                'meals': data.get('meals'),
+                'status': data.get('status'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            result = supabase.table('admin_meal_plans').update(update_data).eq('id', plan_id).execute()
+            
+            if result.data:
+                return jsonify({
+                    'message': 'Meal plan updated successfully',
+                    'meal_plan': result.data[0]
+                }), 200
+        
+        elif request.method == 'DELETE':
+            supabase.table('admin_meal_plans').delete().eq('id', plan_id).execute()
+            return jsonify({'message': 'Meal plan deleted successfully'}), 200
+        
+    except Exception as e:
+        logging.error(f'Admin meal plan detail error: {e}')
+        return jsonify({'error': 'Meal plan operation failed'}), 500
+
+@app.route('/api/meal-plans/admin', methods=['GET', 'OPTIONS'])
+def get_admin_meal_plans():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        result = supabase.table('admin_meal_plans').select('*').eq('status', 'active').order('created_at', desc=True).execute()
+        return jsonify({'meal_plans': result.data}), 200
+        
+    except Exception as e:
+        logging.error(f'Get admin meal plans error: {e}')
+        return jsonify({'error': 'Failed to get meal plans'}), 500
+
+@app.route('/api/meal-plans/sync', methods=['GET', 'OPTIONS'])
+def get_meal_plan_sync():
+    """Get meal plan sync notifications for user apps"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        last_sync = request.args.get('last_sync')
+        
+        # Get notifications
+        query = supabase.table('meal_plan_notifications').select('*').order('timestamp', desc=True)
+        if last_sync:
+            query = query.gte('timestamp', last_sync)
+        else:
+            query = query.limit(50)
+            
+        result = query.execute()
+        return jsonify({'notifications': result.data}), 200
+        
+    except Exception as e:
+        logging.error(f'Get meal plan sync error: {e}')
+        return jsonify({'error': 'Failed to get sync data'}), 500
+
+@app.route('/api/meal-plans/admin-templates', methods=['GET', 'OPTIONS'])
+def get_admin_meal_plan_templates():
+    """Get admin meal plan templates for users to apply"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        logging.info(f'Verifying token for admin templates')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        logging.info(f'Token verified for user: {payload.get("user_id")}')
+        
+        # Get template meals from meal_plans table
+        # Get all records and filter for templates in Python since Supabase NULL queries can be tricky
+        result = supabase.table('meal_plans').select('*').execute()
+        template_meals = [meal for meal in result.data if meal.get('user_id') is None and meal.get('week', '').startswith('template_')]
+        
+        # Group meals by template
+        templates_data = {}
+        logging.info(f'Found {len(template_meals)} template meals')
+        
+        for meal in template_meals:
+            try:
+                week = meal.get('week', '')
+                if week.startswith('template_'):
+                    template_id = week.replace('template_', '')
+                    if template_id not in templates_data:
+                        templates_data[template_id] = {
+                            'meals': {},
+                            'name': template_id.replace('_', ' ').title() + ' Plan'
+                        }
+                    
+                    day = meal.get('day')
+                    meal_time = meal.get('meal_time')
+                    
+                    if day and meal_time:  # Ensure both are not None
+                        if day not in templates_data[template_id]['meals']:
+                            templates_data[template_id]['meals'][day] = {}
+                        
+                        templates_data[template_id]['meals'][day][meal_time] = {
+                            'recipe_name': meal.get('recipe_name'),
+                            'servings': meal.get('servings', 1),
+                            'image': meal.get('image', '🍽️')
+                        }
+            except Exception as meal_error:
+                logging.error(f'Error processing meal: {meal_error}, meal: {meal}')
+                continue
+        
+        # Format templates
+        templates = []
+        logging.info(f'Templates data keys: {list(templates_data.keys())}')
+        
+        for template_id, data in templates_data.items():
+            try:
+                template = {
+                    'id': f"template_{template_id}",
+                    'name': data['name'],
+                    'description': f"Curated {data['name'].lower()} with balanced nutrition",
+                    'week_start': '2024-01-01',
+                    'meals': data['meals'],
+                    'created_by': 'Admin',
+                    'is_admin_template': True,
+                    'created_at': '2024-01-01T00:00:00Z'
+                }
+                templates.append(template)
+                logging.info(f'Added template: {template["name"]}')
+            except Exception as template_error:
+                logging.error(f'Error formatting template {template_id}: {template_error}')
+                continue
+            
+        return jsonify({'templates': templates}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Get admin templates error: {e}')
+        import traceback
+        logging.error(f'Traceback: {traceback.format_exc()}')
+        return jsonify({'error': f'Failed to get templates: {str(e)}'}), 500
+
+@app.route('/api/meal-plans/apply-template', methods=['POST', 'OPTIONS'])
+def apply_meal_plan_template():
+    """Apply an admin meal plan template to user's meal plan"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'Token required'}), 401
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload['user_id']
+        
+        data = request.get_json()
+        template_id = data.get('template_id')
+        target_week = data.get('week', 'Week - 1')
+        
+        if not template_id:
+            return jsonify({'error': 'Template ID required'}), 400
+            
+        # Extract template identifier
+        template_week = template_id  # e.g., 'template_admin_mediterranean'
+        
+        # Get template meals
+        # Get all records and filter for the specific template
+        all_meals = supabase.table('meal_plans').select('*').execute()
+        template_meals = [meal for meal in all_meals.data if meal.get('user_id') is None and meal.get('week') == template_week]
+        
+        # Create a mock result object
+        class MockResult:
+            def __init__(self, data):
+                self.data = data
+        
+        template_result = MockResult(template_meals)
+        
+        if not template_result.data:
+            return jsonify({'error': 'Template not found'}), 404
+            
+        # Clear existing meals for the target week
+        supabase.table('meal_plans').delete().eq('user_id', user_id).eq('week', target_week).execute()
+        
+        # Apply template meals
+        meal_entries = []
+        for template_meal in template_result.data:
+            meal_entry = {
+                'user_id': user_id,
+                'recipe_id': f"applied_{template_meal['recipe_id']}_{user_id}",
+                'recipe_name': template_meal.get('recipe_name'),
+                'day': template_meal.get('day'),
+                'meal_time': template_meal.get('meal_time'),
+                'servings': template_meal.get('servings', 1),
+                'image': template_meal.get('image', '🍽️'),
+                'week': target_week
+            }
+            meal_entries.append(meal_entry)
+        
+        if meal_entries:
+            supabase.table('meal_plans').insert(meal_entries).execute()
+            
+        template_name = template_id.replace('template_', '').replace('_', ' ').title()
+        return jsonify({
+            'message': f'Template "{template_name}" applied to {target_week}',
+            'applied_meals': len(meal_entries)
+        }), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logging.error(f'Apply template error: {e}')
+        return jsonify({'error': 'Failed to apply template'}), 500
+
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     port = int(os.getenv('PORT', 5000))
@@ -1585,4 +1968,5 @@ if __name__ == '__main__':
     
     print(f'Starting Flask server on http://{host}:{port}')
     print(f'Health check available at: http://{host}:{port}/api/health')
+    print(f'Admin recipes available at: http://{host}:{port}/api/admin/recipes')
     app.run(debug=debug_mode, port=port, host=host)

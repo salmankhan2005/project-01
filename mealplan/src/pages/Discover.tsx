@@ -44,6 +44,9 @@ export const Discover = () => {
 
   useEffect(() => {
     loadDiscoverRecipes();
+    // Set up polling for recipe updates
+    const interval = setInterval(loadDiscoverRecipes, 60000); // Poll every minute
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   const loadDiscoverRecipes = async () => {
@@ -51,6 +54,16 @@ export const Discover = () => {
       if (isAuthenticated) {
         const response = await apiService.getDiscoverRecipes();
         setDiscoverRecipes(response.recipes);
+      } else {
+        // Try to get admin recipes even without authentication
+        try {
+          const adminResponse = await apiService.getAdminRecipes();
+          if (adminResponse.recipes && adminResponse.recipes.length > 0) {
+            setDiscoverRecipes(adminResponse.recipes);
+          }
+        } catch (adminError) {
+          console.log('Admin recipes not available');
+        }
       }
     } catch (error) {
       console.error('Failed to load discover recipes:', error);
@@ -140,9 +153,12 @@ export const Discover = () => {
 
         {/* Recipes Grid */}
         <div className="mb-6">
-          <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
-            All Recipes ({filteredRecipes.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold">
+              All Recipes ({filteredRecipes.length})
+            </h3>
+
+          </div>
           {loading ? (
             <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, idx) => (
@@ -162,6 +178,7 @@ export const Discover = () => {
               {filteredRecipes.map((recipe, idx) => {
                 const isSaved = isRecipeSaved(recipe.id);
                 const isUserCreated = discoverRecipes.some(r => r.id === recipe.id);
+                const isAdminRecipe = recipe.author === 'By Admin' || recipe.is_admin_recipe;
                 return (
                   <Card 
                     key={recipe.id}
@@ -185,11 +202,9 @@ export const Discover = () => {
                               {recipe.servings} servings
                             </span>
                           </div>
-                          {isUserCreated && (
+                          {(isUserCreated || isAdminRecipe) && (
                             <div className="mt-1">
-                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                                By {(recipe as any).author || 'User'}
-                              </span>
+
                             </div>
                           )}
                         </div>

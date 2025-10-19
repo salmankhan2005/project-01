@@ -41,7 +41,7 @@ const menuItems = [
   { icon: Users, label: "Users", path: "/admin/users" },
   { icon: ChefHat, label: "Recipes", path: "/admin/recipes" },
   { icon: Calendar, label: "Meal Plans", path: "/admin/meal-plans" },
-  { icon: Tags, label: "Categories", path: "/admin/categories" },
+
   { icon: Star, label: "Reviews", path: "/admin/reviews" },
   { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
   { icon: TrendingUp, label: "Coupons", path: "/admin/coupons" },
