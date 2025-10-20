@@ -1580,6 +1580,66 @@ def admin_users():
         logging.error(f'Admin users error: {e}')
         return jsonify({'error': 'Operation failed'}), 500
 
+@app.route('/api/admin/users/<admin_id>', methods=['PUT', 'DELETE', 'OPTIONS'])
+def admin_user_detail(admin_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        payload = verify_admin_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if 'admin_management' not in payload.get('permissions', []):
+            return jsonify({'error': 'Insufficient permissions'}), 403
+        
+        if request.method == 'PUT':
+            data = request.get_json()
+            
+            update_data = {
+                'name': data.get('name'),
+                'email': data.get('email'),
+                'role': data.get('role'),
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Remove None values
+            update_data = {k: v for k, v in update_data.items() if v is not None}
+            
+            # Validate role if provided
+            if 'role' in update_data and update_data['role'] not in ['super_admin', 'sub_admin', 'marketing_admin']:
+                return jsonify({'error': 'Invalid role'}), 400
+            
+            result = supabase.table('admin_users').update(update_data).eq('id', admin_id).execute()
+            
+            if result.data:
+                admin = result.data[0]
+                return jsonify({
+                    'message': 'Admin updated successfully',
+                    'admin': {
+                        'id': admin['id'],
+                        'email': admin['email'],
+                        'name': admin['name'],
+                        'role': admin['role']
+                    }
+                }), 200
+            else:
+                return jsonify({'error': 'Admin not found'}), 404
+        
+        elif request.method == 'DELETE':
+            # Prevent self-deletion
+            if str(admin_id) == str(payload['admin_id']):
+                return jsonify({'error': 'Cannot delete your own account'}), 400
+            
+            result = supabase.table('admin_users').delete().eq('id', admin_id).execute()
+            return jsonify({'message': 'Admin deleted successfully'}), 200
+        
+    except Exception as e:
+        logging.error(f'Admin user detail error: {e}')
+        return jsonify({'error': 'Operation failed'}), 500
+
 @app.route('/api/admin/regular-users', methods=['GET', 'OPTIONS'])
 def get_regular_users():
     if request.method == 'OPTIONS':

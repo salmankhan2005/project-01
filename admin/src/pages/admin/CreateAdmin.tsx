@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { UserPlus, Edit, Trash2, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { adminApiService } from "@/services/adminApi";
@@ -23,6 +24,9 @@ const CreateAdmin = () => {
 
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: "", email: "", role: "" });
 
   useEffect(() => {
     loadAdmins();
@@ -69,9 +73,35 @@ const CreateAdmin = () => {
     }
   };
 
-  const handleDeleteAdmin = (id: number) => {
-    setAdmins(admins.filter(admin => admin.id !== id));
-    toast({ title: "Success", description: "Admin deleted successfully" });
+  const handleDeleteAdmin = async (id: string) => {
+    try {
+      await adminApiService.deleteAdminUser(id);
+      await loadAdmins();
+      toast({ title: "Success", description: "Admin deleted successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete admin", variant: "destructive" });
+    }
+  };
+
+  const handleEditAdmin = (admin: any) => {
+    setEditingAdmin(admin);
+    setEditFormData({ name: admin.name, email: admin.email, role: admin.role });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmin) return;
+
+    try {
+      await adminApiService.updateAdminUser(editingAdmin.id, editFormData);
+      await loadAdmins();
+      setEditDialogOpen(false);
+      setEditingAdmin(null);
+      toast({ title: "Success", description: "Admin updated successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update admin", variant: "destructive" });
+    }
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -188,7 +218,7 @@ const CreateAdmin = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="icon" variant="ghost">
+                    <Button size="icon" variant="ghost" onClick={() => handleEditAdmin(admin)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDeleteAdmin(admin.id)}>
@@ -201,6 +231,60 @@ const CreateAdmin = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Admin Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Admin</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateAdmin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editName">Full Name</Label>
+              <Input
+                id="editName"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">Email</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editRole">Admin Role</Label>
+              <Select value={editFormData.role} onValueChange={(value) => setEditFormData({ ...editFormData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="sub_admin">Sub Admin</SelectItem>
+                  <SelectItem value="market_admin">Market Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Update Admin
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

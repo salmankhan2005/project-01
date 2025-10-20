@@ -352,6 +352,21 @@ class AdminApiService {
     return response.json();
   }
 
+  async updateSubscriptionPlan(planId: string, data: any): Promise<{ message: string; plan: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/subscription-plans/${planId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update subscription plan');
+    }
+
+    return response.json();
+  }
+
   async deleteSubscriptionPlan(planId: string): Promise<{ message: string }> {
     const response = await fetch(`${ADMIN_API_BASE_URL}/subscription-plans/${planId}`, {
       method: 'DELETE',
@@ -361,6 +376,35 @@ class AdminApiService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete subscription plan');
+    }
+
+    return response.json();
+  }
+
+  async updateAdminUser(adminId: string, data: { name: string; email: string; role: string }): Promise<{ message: string; admin: any }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/users/${adminId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update admin user');
+    }
+
+    return response.json();
+  }
+
+  async deleteAdminUser(adminId: string): Promise<{ message: string }> {
+    const response = await fetch(`${ADMIN_API_BASE_URL}/users/${adminId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete admin user');
     }
 
     return response.json();
