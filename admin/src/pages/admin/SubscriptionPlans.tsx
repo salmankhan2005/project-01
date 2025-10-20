@@ -38,6 +38,8 @@ const SubscriptionPlans = () => {
   });
 
   const [openDialog, setOpenDialog] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +59,39 @@ const SubscriptionPlans = () => {
       toast({ title: "Success", description: "Subscription plan created successfully" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to create subscription plan" });
+    }
+  };
+  
+  const handleEditPlan = (plan) => {
+    setEditingPlan(plan);
+    setFormData({
+      name: plan.name,
+      price: plan.price.toString(),
+      interval: plan.interval,
+      features: plan.features.join('\n')
+    });
+    setOpenEditDialog(true);
+  };
+  
+  const handleUpdatePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const planData = {
+        name: formData.name,
+        price: parseFloat(formData.price),
+        interval: formData.interval,
+        features: formData.features.split('\n').filter(f => f.trim())
+      };
+      
+      await adminApiService.updateSubscriptionPlan(editingPlan.id, planData);
+      await loadPlans();
+      setFormData({ name: "", price: "", interval: "month", features: "" });
+      setOpenEditDialog(false);
+      setEditingPlan(null);
+      toast({ title: "Success", description: "Subscription plan updated successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update subscription plan" });
     }
   };
   
@@ -131,6 +166,53 @@ const SubscriptionPlans = () => {
         </Dialog>
       </div>
 
+      <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Plan</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdatePlan} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Plan Name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-price">Price ($)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-features">Features (one per line)</Label>
+              <Textarea
+                id="edit-features"
+                value={formData.features}
+                onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+                placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
+                rows={4}
+                required
+              />
+            </div>
+            
+            <Button type="submit" className="w-full">
+              Update Plan
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => (
           <Card key={plan.id} className={`relative ${plan.name === "Premium" ? "border-primary" : ""}`}>
@@ -158,7 +240,7 @@ const SubscriptionPlans = () => {
               </div>
               
               <div className="flex gap-2 pt-4">
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEditPlan(plan)}>
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
