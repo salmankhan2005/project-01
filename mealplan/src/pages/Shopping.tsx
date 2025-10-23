@@ -448,7 +448,7 @@ export const Shopping = () => {
                   : 'text-foreground hover:bg-muted/50'
               }`}
             >
-              Past
+              Final Item
             </button>
           </div>
         </div>

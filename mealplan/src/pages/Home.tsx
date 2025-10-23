@@ -70,30 +70,7 @@ export const Home = () => {
   const [foodDropdownOpen, setFoodDropdownOpen] = useState(false);
   const [meals, setMeals] = useState<Record<string, Meal[]>>(initialMeals);
 
-  // Load meals from localStorage for guest users only
-  useEffect(() => {
-    if (isGuest) {
-      const savedMeals = localStorage.getItem('guest_meals');
-      console.log('Loading guest meals:', savedMeals);
-      if (savedMeals) {
-        try {
-          const parsedMeals = JSON.parse(savedMeals);
-          console.log('Parsed meals:', parsedMeals);
-          setMeals(parsedMeals);
-        } catch (error) {
-          console.error('Error parsing saved meals:', error);
-        }
-      }
-    }
-  }, [isGuest]);
 
-  // Save meals to localStorage when they change (guest users only)
-  useEffect(() => {
-    if (isGuest && meals !== initialMeals) {
-      console.log('Saving meals to localStorage:', meals);
-      localStorage.setItem('guest_meals', JSON.stringify(meals));
-    }
-  }, [meals, isGuest]);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>(preferences.viewMode);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [editMealOpen, setEditMealOpen] = useState(false);
@@ -174,21 +151,17 @@ export const Home = () => {
           week: selectedWeek
         });
       } else {
-        // Local storage for guests
-        const selectedPersonId = selectedAssignedTo ?? null;
-        const newMeal: Meal = {
-          time: selectedMealTime,
-          name: sanitizeInput(mealName),
-          description: sanitizeInput(mealDescription),
-          assignedTo: selectedPersonId,
+        // Use MealPlanContext for guests (now with localStorage)
+        await addToMealPlan({
+          recipeId: `meal-${Date.now()}`,
+          recipeName: sanitizeInput(mealName),
+          day: selectedDay,
+          mealTime: selectedMealTime,
+          servings: 1,
+          image: '🍽️',
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           week: selectedWeek
-        };
-        const updatedMeals = {
-          ...meals,
-          [selectedDay]: meals[selectedDay] ? [...meals[selectedDay].filter(m => m.time !== selectedMealTime || m.week !== selectedWeek || m.assignedTo !== selectedPersonId), newMeal] : [newMeal]
-        };
-        setMeals(updatedMeals);
-        localStorage.setItem('guest_meals', JSON.stringify(updatedMeals));
+        });
       }
       
       toast.success('Meal added successfully');
@@ -231,25 +204,17 @@ export const Home = () => {
           week: selectedWeek
         });
       } else {
-        // Local update for guests
-        const updatedMeal: Meal = {
-          time: editingMeal.time,
-          name: sanitizeInput(mealName),
-          description: sanitizeInput(mealDescription),
-          ingredients: mealIngredients.split('\n').filter(i => i.trim()),
-          instructions: mealInstructions.split('\n').filter(i => i.trim()),
+        // Use MealPlanContext for guests
+        await addToMealPlan({
+          recipeId: `meal-${Date.now()}`,
+          recipeName: sanitizeInput(mealName),
+          day: selectedDay,
+          mealTime: editingMeal.time,
           servings: mealServings,
-          cookTime: mealCookTime,
-          assignedTo: selectedAssignedTo ?? editingMeal.assignedTo,
-          week: selectedWeek || editingMeal.week
-        };
-        setMeals(prev => ({
-          ...prev,
-          [selectedDay]: prev[selectedDay]?.map(m => 
-            m.time === editingMeal.time && m.week === editingMeal.week && m.assignedTo === editingMeal.assignedTo 
-              ? updatedMeal : m
-          ) || []
-        }));
+          image: '🍽️',
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          week: selectedWeek
+        });
       }
       
       toast.success('Meal updated successfully');
@@ -277,16 +242,12 @@ export const Home = () => {
           await removeFromMealPlan(mealToDelete.id);
         }
       } else {
-        // Local delete for guests
-        const selectedPersonId = selectedFood;
-        setMeals(prev => ({
-          ...prev,
-          [day]: prev[day]?.filter(m => {
-            const weekMatch = selectedWeek ? m.week === selectedWeek : true;
-            const personMatch = selectedPersonId ? m.assignedTo?.toString() === selectedPersonId : true;
-            return !(m.time === mealTime && weekMatch && personMatch);
-          }) || []
-        }));
+        // Use MealPlanContext for guests
+        const mealPlanItems = getMealsForDay(day);
+        const mealToDelete = mealPlanItems.find(item => item.mealTime === mealTime);
+        if (mealToDelete) {
+          await removeFromMealPlan(mealToDelete.id);
+        }
       }
       
       toast.success('Meal deleted successfully');
@@ -482,9 +443,18 @@ export const Home = () => {
     }
     
     try {
-      // Remove old meal and add updated one
-      await removeFromMealPlan(editingMealPlan.id);
-      // Note: You might want to add an update endpoint instead of delete+add
+      // Update meal using addToMealPlan (it will replace existing meal with same mealTime)
+      await addToMealPlan({
+        recipeId: editingMealPlan.recipeId,
+        recipeName: sanitizeInput(editMealPlanName.trim()),
+        day: selectedDay,
+        mealTime: editingMealPlan.mealTime,
+        servings: editingMealPlan.servings || 1,
+        image: editingMealPlan.image || '🍽️',
+        time: editingMealPlan.time,
+        week: editingMealPlan.week || selectedWeek
+      });
+      
       toast.success('Meal updated successfully!');
       setEditMealPlanOpen(false);
       setEditingMealPlan(null);
@@ -506,20 +476,12 @@ export const Home = () => {
 
         
         {/* Action buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <Button 
             className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
             onClick={() => setPlanMonthOpen(true)}
           >
             Plan your month
-          </Button>
-          
-          <Button 
-            className="w-full bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-secondary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-            onClick={() => navigate('/meal-plan-templates')}
-          >
-            <Sparkles className="w-5 h-5" />
-            Browse Templates
           </Button>
         </div>
 
@@ -733,20 +695,12 @@ export const Home = () => {
                   
                   <div className="space-y-4">
                     {mealTimes.map(({ name, icon: Icon }) => {
-                      // Check meal plan context (backend meals) - already filtered by week
+                      // Check meal plan context (includes localStorage for guests)
                       const mealPlanItems = getMealsForDay(day);
                       const mealPlanItem = mealPlanItems.find(item => item.mealTime === name);
                       
-                      // Check local meals (for guests) - filter by current week
-                      const currentPersonId = selectedFood;
-                      const localMeal = (meals[day] || []).find(m => {
-                        const weekMatch = m.week === selectedWeek; // Strict week matching
-                        const personMatch = currentPersonId ? m.assignedTo?.toString() === currentPersonId : !selectedFood;
-                        return m.time === name && weekMatch && personMatch;
-                      });
-                      
-                      // Use meal plan item first (backend), then local meal
-                      const displayMeal = mealPlanItem || localMeal;
+                      // Use meal plan item (which now includes localStorage data for guests)
+                      const displayMeal = mealPlanItem;
                       
 
                       return (
@@ -776,10 +730,8 @@ export const Home = () => {
                               size="sm"
                               className="h-8 w-8 p-0 hover:bg-destructive/20"
                               onClick={() => {
-                                if (mealPlanItem) {
-                                  handleDeleteMealPlan(mealPlanItem.id);
-                                } else if (localMeal) {
-                                  handleDeleteMeal(name, day);
+                                if (displayMeal) {
+                                  handleDeleteMealPlan(displayMeal.id);
                                 }
                               }}
                             >
@@ -790,10 +742,8 @@ export const Home = () => {
                               size="sm"
                               className="h-8 w-8 p-0 hover:bg-primary/20"
                               onClick={() => {
-                                if (mealPlanItem) {
-                                  handleEditMealPlan(mealPlanItem, day);
-                                } else if (localMeal) {
-                                  handleEditMeal(localMeal, day);
+                                if (displayMeal) {
+                                  handleEditMealPlan(displayMeal, day);
                                 } else {
                                   setSelectedMealTime(name);
                                   setSelectedDay(day);

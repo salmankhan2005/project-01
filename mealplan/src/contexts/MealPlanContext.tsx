@@ -41,17 +41,60 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [currentWeek, setCurrentWeek] = useState<string>('Week - 1');
   const [loading, setLoading] = useState(false);
 
+  // Load from localStorage for guest users
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const savedMealPlan = localStorage.getItem(`guestMealPlan_${currentWeek}`);
+      if (savedMealPlan) {
+        try {
+          setMealPlan(JSON.parse(savedMealPlan));
+        } catch (error) {
+          console.error('Error loading guest meal plan:', error);
+        }
+      } else {
+        setMealPlan({});
+      }
+    }
+  }, [isAuthenticated, currentWeek]);
+
+  // Initialize guest data on first load
+  useEffect(() => {
+    if (!isAuthenticated && Object.keys(mealPlan).length === 0) {
+      const savedMealPlan = localStorage.getItem(`guestMealPlan_${currentWeek}`);
+      if (savedMealPlan) {
+        try {
+          setMealPlan(JSON.parse(savedMealPlan));
+        } catch (error) {
+          console.error('Error loading guest meal plan:', error);
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadMealPlan();
     }
   }, [isAuthenticated, currentWeek]);
 
-  // Clear meal plan when week changes to force reload
+  // Handle week changes
   useEffect(() => {
-    setMealPlan({});
     if (isAuthenticated) {
+      setMealPlan({});
       loadMealPlan();
+    } else {
+      // Load guest data for new week
+      const savedMealPlan = localStorage.getItem(`guestMealPlan_${currentWeek}`);
+      if (savedMealPlan) {
+        try {
+          setMealPlan(JSON.parse(savedMealPlan));
+        } catch (error) {
+          console.error('Error loading guest meal plan:', error);
+          setMealPlan({});
+        }
+      } else {
+        setMealPlan({});
+      }
     }
   }, [currentWeek]);
 
@@ -110,13 +153,25 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
           id: `${item.day}-${item.mealTime}-${Date.now()}`,
           week: item.week || currentWeek
         };
-        setMealPlan(prev => ({
-          ...prev,
-          [item.day]: [
-            ...(prev[item.day] || []).filter(meal => meal.mealTime !== item.mealTime),
-            newItem
-          ]
-        }));
+        const existingMeals = mealPlan[item.day] || [];
+        const existingMealIndex = existingMeals.findIndex(meal => meal.mealTime === item.mealTime);
+        
+        let updatedDayMeals;
+        if (existingMealIndex >= 0) {
+          // Update existing meal
+          updatedDayMeals = [...existingMeals];
+          updatedDayMeals[existingMealIndex] = newItem;
+        } else {
+          // Add new meal
+          updatedDayMeals = [...existingMeals, newItem];
+        }
+        
+        const updatedPlan = {
+          ...mealPlan,
+          [item.day]: updatedDayMeals
+        };
+        setMealPlan(updatedPlan);
+        localStorage.setItem(`guestMealPlan_${currentWeek}`, JSON.stringify(updatedPlan));
       }
     } catch (error) {
       console.error('Failed to add to meal plan:', error);
@@ -131,13 +186,12 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
         // Force reload with a small delay to ensure backend has processed
         setTimeout(() => loadMealPlan(), 100);
       } else {
-        setMealPlan(prev => {
-          const newPlan = { ...prev };
-          Object.keys(newPlan).forEach(day => {
-            newPlan[day] = newPlan[day].filter(meal => meal.id !== id);
-          });
-          return newPlan;
+        const updatedPlan = { ...mealPlan };
+        Object.keys(updatedPlan).forEach(day => {
+          updatedPlan[day] = updatedPlan[day].filter(meal => meal.id !== id);
         });
+        setMealPlan(updatedPlan);
+        localStorage.setItem(`guestMealPlan_${currentWeek}`, JSON.stringify(updatedPlan));
       }
     } catch (error) {
       console.error('Failed to remove from meal plan:', error);
