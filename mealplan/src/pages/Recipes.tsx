@@ -42,7 +42,8 @@ const AdminRecipesSection = () => {
       const response = await apiService.getAdminRecipes();
       setAdminRecipes(response.recipes || []);
     } catch (error) {
-      console.log('Admin recipes not available');
+      // Silently handle connection errors - backend may not be running
+      setAdminRecipes([]);
     } finally {
       setLoading(false);
     }
@@ -102,8 +103,9 @@ export const Recipes = () => {
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedMealTime, setSelectedMealTime] = useState('');
+  const [showSearchSignInNotification, setShowSearchSignInNotification] = useState(false);
   const { savedRecipes, unsaveRecipe } = useSavedRecipes();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isGuest } = useAuth();
   const { addToMealPlan, currentWeek } = useMealPlan();
   const { preferences } = useUserData();
   const { toast } = useToast();
@@ -117,23 +119,42 @@ export const Recipes = () => {
       loadSavedRecipes();
       loadUserRecipes();
     } else {
+      // Load guest recipes from localStorage
+      const guestCreatedRecipes = localStorage.getItem('createdRecipes');
+      if (guestCreatedRecipes) {
+        setUserRecipes(JSON.parse(guestCreatedRecipes).map(recipe => ({
+          id: recipe.id,
+          name: recipe.name,
+          image: recipe.image || '🍽️',
+          time: recipe.time || '30 min',
+          servings: recipe.servings || 1,
+          category: 'Custom',
+          ingredients: recipe.ingredients || [],
+          instructions: recipe.instructions || []
+        })));
+      }
       setLoading(false);
     }
     
-    // Set up polling for admin recipe updates
-    const interval = setInterval(async () => {
-      try {
-        const adminRecipes = await apiService.getAdminRecipes();
-        // Update any admin recipes in the current view
-        if (adminRecipes.recipes && adminRecipes.recipes.length > 0) {
-          // This could trigger a re-render if admin recipes are displayed
+    // Set up polling for admin recipe updates (only if authenticated)
+    let interval;
+    if (isAuthenticated) {
+      interval = setInterval(async () => {
+        try {
+          const adminRecipes = await apiService.getAdminRecipes();
+          // Update any admin recipes in the current view
+          if (adminRecipes.recipes && adminRecipes.recipes.length > 0) {
+            // This could trigger a re-render if admin recipes are displayed
+          }
+        } catch (error) {
+          // Silently handle connection errors
         }
-      } catch (error) {
-        // Silently handle errors
-      }
-    }, 60000); // Poll every minute
+      }, 60000); // Poll every minute
+    }
     
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isAuthenticated]);
 
   const loadSavedRecipes = async () => {
@@ -283,8 +304,19 @@ export const Recipes = () => {
           <Input
             placeholder="Search recipes..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              if (!isGuest) {
+                setSearchQuery(e.target.value);
+              }
+            }}
+            onClick={() => {
+              if (isGuest) {
+                setShowSearchSignInNotification(true);
+                setTimeout(() => setShowSearchSignInNotification(false), 3000);
+              }
+            }}
             className="pl-9 sm:pl-10 h-10 sm:h-12 text-sm sm:text-base"
+            readOnly={isGuest}
           />
         </div>
 
@@ -497,6 +529,32 @@ export const Recipes = () => {
       </main>
 
       <BottomNav />
+      
+      {/* Search Sign In Notification */}
+      {showSearchSignInNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up">
+          <div className="bg-card border border-border rounded-lg p-4 shadow-lg mx-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Search className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium">Sign in to search recipes</span>
+              </div>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs ml-4"
+                onClick={() => {
+                  setShowSearchSignInNotification(false);
+                  navigate('/auth');
+                }}
+              >
+                Sign In
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add to Meal Plan Dialog */}
       <Dialog open={mealPlanDialog} onOpenChange={setMealPlanDialog}>

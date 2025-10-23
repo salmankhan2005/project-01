@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { LoadingButton } from '@/components/LoadingButton';
 import { GlowCard } from '@/components/GlowCard';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,10 +26,11 @@ const mockItems = [
 ];
 
 export const Shopping = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isGuest } = useAuth();
+  const { savedRecipes } = useSavedRecipes();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [items, setItems] = useState(mockItems);
+  const [items, setItems] = useState<typeof mockItems>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
@@ -38,12 +40,147 @@ export const Shopping = () => {
   const [recentItems, setRecentItems] = useState<any[]>([]);
   const [addItemLoading, setAddItemLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [recipeIngredients, setRecipeIngredients] = useState<typeof mockItems>([]);
+  const [mealIngredients, setMealIngredients] = useState<typeof mockItems>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadShoppingData();
+    } else {
+      // Load from localStorage for guest mode
+      const savedItems = localStorage.getItem('guest_shopping_items');
+      if (savedItems) {
+        setItems(JSON.parse(savedItems));
+      }
+      setLoading(false);
     }
   }, [isAuthenticated]);
+
+  // Save to localStorage when items change in guest mode
+  useEffect(() => {
+    if (isGuest && items.length > 0) {
+      localStorage.setItem('guest_shopping_items', JSON.stringify(items));
+    }
+  }, [items, isGuest]);
+  
+  useEffect(() => {
+    loadRecipeIngredients();
+    loadMealIngredients();
+  }, [savedRecipes, isGuest]);
+
+  const loadMealIngredients = () => {
+    const ingredients = new Set<string>();
+    
+    // Add some test ingredients for now
+    const testIngredients = ['Chicken Breast', 'Rice', 'Broccoli', 'Olive Oil'];
+    testIngredients.forEach(ingredient => ingredients.add(ingredient));
+    
+    // Get ingredients from guest meals (localStorage)
+    try {
+      const guestMeals = localStorage.getItem('guest_meals');
+      console.log('Guest meals data:', guestMeals);
+      if (guestMeals) {
+        const meals = JSON.parse(guestMeals);
+        console.log('Parsed meals:', meals);
+        Object.values(meals).forEach((dayMeals: any) => {
+          if (Array.isArray(dayMeals)) {
+            dayMeals.forEach((meal: any) => {
+              console.log('Processing meal:', meal);
+              if (meal.ingredients && Array.isArray(meal.ingredients)) {
+                meal.ingredients.forEach((ingredient: string) => {
+                  if (ingredient && typeof ingredient === 'string') {
+                    ingredients.add(ingredient.trim());
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.log('Error loading meal ingredients:', error);
+    }
+    
+    // Convert to shopping items format
+    const ingredientItems = Array.from(ingredients).map((ingredient, index) => ({
+      id: `meal-ingredient-${index}`,
+      name: ingredient,
+      category: categorizeIngredient(ingredient),
+      checked: false
+    }));
+    
+    console.log('Final meal ingredients:', ingredientItems);
+    setMealIngredients(ingredientItems);
+  };
+
+  const loadRecipeIngredients = async () => {
+    const ingredients = new Set<string>();
+    
+    // Add some default ingredients for testing
+    const defaultIngredients = [
+      'Chicken Breast', 'Olive Oil', 'Salt', 'Black Pepper', 'Garlic',
+      'Onion', 'Tomatoes', 'Rice', 'Pasta', 'Cheese', 'Milk', 'Eggs'
+    ];
+    
+    defaultIngredients.forEach(ingredient => {
+      ingredients.add(ingredient);
+    });
+    
+    // Get ingredients from saved recipes
+    savedRecipes.forEach(recipe => {
+      if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
+        recipe.ingredients.forEach(ingredient => {
+          if (ingredient && typeof ingredient === 'string') {
+            ingredients.add(ingredient.trim());
+          }
+        });
+      }
+    });
+    
+    // Get ingredients from guest meals (localStorage)
+    try {
+      const guestMeals = localStorage.getItem('guest_meals');
+      if (guestMeals) {
+        const meals = JSON.parse(guestMeals);
+        Object.values(meals).forEach((dayMeals: any) => {
+          if (Array.isArray(dayMeals)) {
+            dayMeals.forEach((meal: any) => {
+              if (meal.ingredients && Array.isArray(meal.ingredients)) {
+                meal.ingredients.forEach((ingredient: string) => {
+                  if (ingredient && typeof ingredient === 'string') {
+                    ingredients.add(ingredient.trim());
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.log('Error loading guest meals:', error);
+    }
+    
+    // Convert to shopping items format
+    const ingredientItems = Array.from(ingredients).map((ingredient, index) => ({
+      id: `ingredient-${index}`,
+      name: ingredient,
+      category: categorizeIngredient(ingredient),
+      checked: false
+    }));
+    
+    setRecipeIngredients(ingredientItems);
+  };
+  
+  const categorizeIngredient = (ingredient: string): string => {
+    const lower = ingredient.toLowerCase();
+    if (lower.includes('chicken') || lower.includes('beef') || lower.includes('pork') || lower.includes('fish') || lower.includes('salmon')) return 'Meat';
+    if (lower.includes('tomato') || lower.includes('onion') || lower.includes('carrot') || lower.includes('lettuce') || lower.includes('spinach')) return 'Vegetables';
+    if (lower.includes('apple') || lower.includes('banana') || lower.includes('orange') || lower.includes('berry')) return 'Fruits';
+    if (lower.includes('milk') || lower.includes('cheese') || lower.includes('yogurt') || lower.includes('butter')) return 'Dairy';
+    if (lower.includes('pasta') || lower.includes('spaghetti') || lower.includes('noodle')) return 'Pasta';
+    if (lower.includes('oil') || lower.includes('salt') || lower.includes('pepper') || lower.includes('flour') || lower.includes('sugar')) return 'Pantry';
+    return 'Other';
+  };
 
   const loadShoppingData = async () => {
     try {
@@ -78,9 +215,10 @@ export const Shopping = () => {
         });
       }
       
-      setItems(items.map(item => 
+      const updatedItems = items.map(item => 
         item.id === id ? { ...item, checked: !item.checked } : item
-      ));
+      );
+      setItems(updatedItems);
     } catch (error) {
       toast({
         title: "Error",
@@ -89,6 +227,18 @@ export const Shopping = () => {
       });
     }
   };
+  
+  const shareToWhatsApp = () => {
+    const checkedItems = items.filter(item => item.checked);
+    if (checkedItems.length === 0) return;
+    
+    const message = `🛒 Shopping List:\n\n${checkedItems.map(item => `✅ ${item.name} (${item.category})`).join('\n')}\n\nShared from FreshPlate`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+  
+  const checkedItemsCount = items.filter(item => item.checked).length;
 
   const deleteItem = async (id: number | string) => {
     try {
@@ -341,80 +491,138 @@ export const Shopping = () => {
         {activeTab === 'all' && (
           <div className="space-y-6">
             <div className="space-y-3">
-              <Card className="p-4 animate-fade-up">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={false} disabled className="data-[state=checked]:bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">Apples</p>
-                    <p className="text-xs text-muted-foreground">Fruits</p>
+              {recipeIngredients.map((ingredient, idx) => (
+                <GlowCard key={ingredient.id} className="p-4 animate-fade-up bg-gradient-to-r from-muted/50 to-muted/30 hover:shadow-md" 
+                      style={{ animationDelay: `${idx * 0.05}s` }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Checkbox checked={false} className="data-[state=checked]:bg-primary" />
+                      <div className="flex-1">
+                        <p className="font-medium">{ingredient.name}</p>
+                        <p className="text-xs text-muted-foreground">{ingredient.category}</p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        const newItem = {
+                          id: Math.max(...items.map(i => typeof i.id === 'number' ? i.id : 0), 0) + 1,
+                          name: ingredient.name,
+                          category: ingredient.category,
+                          checked: false
+                        };
+                        const updatedItems = [newItem, ...items];
+                        setItems(updatedItems);
+                        
+                        // Save to localStorage for guest mode
+                        if (isGuest) {
+                          localStorage.setItem('guest_shopping_items', JSON.stringify(updatedItems));
+                        }
+                        
+                        toast({
+                          title: "Item added",
+                          description: `${ingredient.name} added to your shopping list`,
+                        });
+                      }}
+                      className="h-8 px-3"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
                   </div>
-                </div>
-              </Card>
-              <Card className="p-4 animate-fade-up">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={false} disabled className="data-[state=checked]:bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">Milk</p>
-                    <p className="text-xs text-muted-foreground">Dairy</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4 animate-fade-up">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={false} disabled className="data-[state=checked]:bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">Bread</p>
-                    <p className="text-xs text-muted-foreground">Pantry</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4 animate-fade-up">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={false} disabled className="data-[state=checked]:bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">Tomatoes</p>
-                    <p className="text-xs text-muted-foreground">Vegetables</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4 animate-fade-up">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={false} disabled className="data-[state=checked]:bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">Rice</p>
-                    <p className="text-xs text-muted-foreground">Pantry</p>
-                  </div>
-                </div>
-              </Card>
+                </GlowCard>
+              ))}
+              {recipeIngredients.length === 0 && (
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">No ingredients found from recipes</p>
+                </Card>
+              )}
             </div>
           </div>
         )}
         {activeTab === 'past' && (
-          <div className="space-y-3">
-            {pastItems.length > 0 ? (
-              pastItems.map((item, idx) => (
-                <Card key={item.id} className="p-4 animate-fade-up" 
-                      style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={item.checked}
-                      disabled
-                      className="data-[state=checked]:bg-primary"
-                    />
-                    <div className="flex-1">
-                      <p className={`font-medium ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{item.category}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            ) : (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">No past shopping lists</p>
-              </Card>
+          <div className="space-y-6">
+            {/* Meal Ingredients Section */}
+            {mealIngredients.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Meal Ingredients</h3>
+                <div className="space-y-3">
+                  {mealIngredients.map((ingredient, idx) => (
+                    <GlowCard key={ingredient.id} className="p-4 animate-fade-up bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-blue-200/50" 
+                          style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Checkbox checked={false} className="data-[state=checked]:bg-primary" />
+                          <div className="flex-1">
+                            <p className="font-medium">{ingredient.name}</p>
+                            <p className="text-xs text-muted-foreground">{ingredient.category}</p>
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const newItem = {
+                              id: Math.max(...items.map(i => typeof i.id === 'number' ? i.id : 0), 0) + 1,
+                              name: ingredient.name,
+                              category: ingredient.category,
+                              checked: false
+                            };
+                            const updatedItems = [newItem, ...items];
+                            setItems(updatedItems);
+                            
+                            if (isGuest) {
+                              localStorage.setItem('guest_shopping_items', JSON.stringify(updatedItems));
+                            }
+                            
+                            toast({
+                              title: "Item added",
+                              description: `${ingredient.name} added to your shopping list`,
+                            });
+                          }}
+                          className="h-8 px-3"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </GlowCard>
+                  ))}
+                </div>
+              </div>
             )}
+            
+            {/* Past Items Section */}
+            <div>
+              {pastItems.length > 0 && <h3 className="text-lg font-semibold mb-4">Past Shopping Lists</h3>}
+              <div className="space-y-3">
+                {pastItems.length > 0 ? (
+                  pastItems.map((item, idx) => (
+                    <Card key={item.id} className="p-4 animate-fade-up" 
+                          style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={item.checked}
+                          disabled
+                          className="data-[state=checked]:bg-primary"
+                        />
+                        <div className="flex-1">
+                          <p className={`font-medium ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : mealIngredients.length === 0 ? (
+                  <Card className="p-8 text-center">
+                    <p className="text-muted-foreground">No meal ingredients or past shopping lists</p>
+                  </Card>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
 
@@ -436,6 +644,19 @@ export const Shopping = () => {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* WhatsApp Share Button - Shows when items are checked */}
+        {activeTab === 'recent' && checkedItemsCount > 0 && (
+          <div className="fixed bottom-24 right-4 z-50">
+            <Button 
+              onClick={shareToWhatsApp}
+              className="h-14 w-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg"
+              size="icon"
+            >
+              <MessageCircle className="w-6 h-6" />
+            </Button>
+          </div>
         )}
 
         {/* Action Buttons - Only show in recent tab */}

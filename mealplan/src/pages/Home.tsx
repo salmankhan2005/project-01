@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock, Lock, Edit2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, ChefHat, Calendar as CalendarIcon, Grid, List, Star, Clock, Lock, Edit2, Sparkles, Crown } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
@@ -40,7 +40,11 @@ interface Person {
 interface Meal {
   time: string;
   name: string;
-  description: string;
+  description?: string;
+  ingredients?: string[];
+  instructions?: string[];
+  servings?: number;
+  cookTime?: string;
   assignedTo?: number;
   week?: string;
 }
@@ -66,12 +70,30 @@ export const Home = () => {
   const [foodDropdownOpen, setFoodDropdownOpen] = useState(false);
   const [meals, setMeals] = useState<Record<string, Meal[]>>(initialMeals);
 
-  // Clear local meals when week changes for proper isolation
+  // Load meals from localStorage for guest users only
   useEffect(() => {
-    if (!isAuthenticated) {
-      setMeals(initialMeals);
+    if (isGuest) {
+      const savedMeals = localStorage.getItem('guest_meals');
+      console.log('Loading guest meals:', savedMeals);
+      if (savedMeals) {
+        try {
+          const parsedMeals = JSON.parse(savedMeals);
+          console.log('Parsed meals:', parsedMeals);
+          setMeals(parsedMeals);
+        } catch (error) {
+          console.error('Error parsing saved meals:', error);
+        }
+      }
     }
-  }, [selectedWeek, isAuthenticated]);
+  }, [isGuest]);
+
+  // Save meals to localStorage when they change (guest users only)
+  useEffect(() => {
+    if (isGuest && meals !== initialMeals) {
+      console.log('Saving meals to localStorage:', meals);
+      localStorage.setItem('guest_meals', JSON.stringify(meals));
+    }
+  }, [meals, isGuest]);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>(preferences.viewMode);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [editMealOpen, setEditMealOpen] = useState(false);
@@ -79,6 +101,10 @@ export const Home = () => {
   const [selectedDay, setSelectedDay] = useState('');
   const [mealName, setMealName] = useState('');
   const [mealDescription, setMealDescription] = useState('');
+  const [mealIngredients, setMealIngredients] = useState('');
+  const [mealInstructions, setMealInstructions] = useState('');
+  const [mealServings, setMealServings] = useState(1);
+  const [mealCookTime, setMealCookTime] = useState('');
   const [selectedAssignedTo, setSelectedAssignedTo] = useState<string | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [craftMealOpen, setCraftMealOpen] = useState(false);
@@ -105,6 +131,8 @@ export const Home = () => {
   const [editMealPlanName, setEditMealPlanName] = useState('');
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState(true);
+  const [showSignInNotification, setShowSignInNotification] = useState(false);
+  const [showSubscriptionNotification, setShowSubscriptionNotification] = useState(false);
 
   // Sync preferences when they change
   useEffect(() => {
@@ -155,10 +183,12 @@ export const Home = () => {
           assignedTo: selectedPersonId,
           week: selectedWeek
         };
-        setMeals(prev => ({
-          ...prev,
-          [selectedDay]: prev[selectedDay] ? [...prev[selectedDay].filter(m => m.time !== selectedMealTime || m.week !== selectedWeek || m.assignedTo !== selectedPersonId), newMeal] : [newMeal]
-        }));
+        const updatedMeals = {
+          ...meals,
+          [selectedDay]: meals[selectedDay] ? [...meals[selectedDay].filter(m => m.time !== selectedMealTime || m.week !== selectedWeek || m.assignedTo !== selectedPersonId), newMeal] : [newMeal]
+        };
+        setMeals(updatedMeals);
+        localStorage.setItem('guest_meals', JSON.stringify(updatedMeals));
       }
       
       toast.success('Meal added successfully');
@@ -174,7 +204,11 @@ export const Home = () => {
     setEditingMeal(meal);
     setSelectedDay(day);
     setMealName(meal.name);
-    setMealDescription(meal.description);
+    setMealDescription(meal.description || '');
+    setMealIngredients(meal.ingredients?.join('\n') || '');
+    setMealInstructions(meal.instructions?.join('\n') || '');
+    setMealServings(meal.servings || 1);
+    setMealCookTime(meal.cookTime || '');
     setSelectedMealTime(meal.time);
     setSelectedAssignedTo(meal.assignedTo ?? null);
     setEditMealOpen(true);
@@ -191,7 +225,7 @@ export const Home = () => {
           recipeName: sanitizeInput(mealName),
           day: selectedDay,
           mealTime: editingMeal.time,
-          servings: 1,
+          servings: mealServings,
           image: '🍽️',
           time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           week: selectedWeek
@@ -200,8 +234,12 @@ export const Home = () => {
         // Local update for guests
         const updatedMeal: Meal = {
           time: editingMeal.time,
-          name: mealName,
-          description: mealDescription,
+          name: sanitizeInput(mealName),
+          description: sanitizeInput(mealDescription),
+          ingredients: mealIngredients.split('\n').filter(i => i.trim()),
+          instructions: mealInstructions.split('\n').filter(i => i.trim()),
+          servings: mealServings,
+          cookTime: mealCookTime,
           assignedTo: selectedAssignedTo ?? editingMeal.assignedTo,
           week: selectedWeek || editingMeal.week
         };
@@ -219,6 +257,11 @@ export const Home = () => {
       setEditingMeal(null);
       setMealName('');
       setMealDescription('');
+      setMealIngredients('');
+      setMealInstructions('');
+      setMealServings(1);
+      setMealCookTime('');
+      setSelectedAssignedTo(null);
     } catch (error) {
       toast.error('Failed to update meal');
     }
@@ -454,7 +497,7 @@ export const Home = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header 
-        title="Morning Dew Meal Planner"
+        title="Meal plan pro"
         showBackButton={true}
         onBackClick={() => navigate(-1)}
       />
@@ -543,30 +586,20 @@ export const Home = () => {
                             setCurrentWeek(week);
                             setWeekDropdownOpen(false);
                             savePreferences(week);
+                          } else {
+                            setWeekDropdownOpen(false);
+                            setShowSignInNotification(true);
+                            setTimeout(() => setShowSignInNotification(false), 3000);
                           }
                         }}
-                        disabled={isLocked}
+
                       >
                         <span>{week}</span>
                         {isLocked && <Lock className="w-4 h-4 text-muted-foreground" />}
                       </Button>
                     );
                   })}
-                  {isGuest && (
-                    <div className="px-3 py-2 text-center border-t border-border">
-                      <p className="text-xs text-muted-foreground mb-2">Sign in to unlock these features</p>
-                      <Button
-                        size="sm"
-                        className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
-                        onClick={() => {
-                          setWeekDropdownOpen(false);
-                          navigate('/auth');
-                        }}
-                      >
-                        Sign In
-                      </Button>
-                    </div>
-                  )}
+
                 </div>
               </Card>
             )}
@@ -599,6 +632,10 @@ export const Home = () => {
                           if (!isLocked) {
                             setSelectedFood(person.id.toString()); 
                             setFoodDropdownOpen(false);
+                          } else {
+                            setFoodDropdownOpen(false);
+                            setShowSubscriptionNotification(true);
+                            setTimeout(() => setShowSubscriptionNotification(false), 3000);
                           }
                         }}
                         onKeyDown={(e) => { 
@@ -667,21 +704,7 @@ export const Home = () => {
                       'Add Person'
                     )}
                   </Button>
-                  {!isSubscribed && (
-                    <div className="px-3 py-2 text-center border-t border-border mt-2">
-                      <p className="text-xs text-muted-foreground mb-2">Subscribe to unlock premium features</p>
-                      <Button
-                        size="sm"
-                        className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
-                        onClick={() => {
-                          setFoodDropdownOpen(false);
-                          navigate('/premium');
-                        }}
-                      >
-                        Subscribe
-                      </Button>
-                    </div>
-                  )}
+
                 </div>
               </Card>
             )}
@@ -924,7 +947,7 @@ export const Home = () => {
 
       {/* Edit Meal Dialog */}
       <Dialog open={editMealOpen} onOpenChange={setEditMealOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Meal</DialogTitle>
           </DialogHeader>
@@ -936,6 +959,27 @@ export const Home = () => {
                 value={mealName}
                 onChange={(e) => setMealName(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-meal-servings">Servings</Label>
+                <Input
+                  id="edit-meal-servings"
+                  type="number"
+                  min="1"
+                  value={mealServings}
+                  onChange={(e) => setMealServings(parseInt(e.target.value) || 1)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-meal-cook-time">Cook Time</Label>
+                <Input
+                  id="edit-meal-cook-time"
+                  placeholder="e.g., 30 min"
+                  value={mealCookTime}
+                  onChange={(e) => setMealCookTime(e.target.value)}
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="edit-meal-assigned">Assign to</Label>
@@ -957,6 +1001,26 @@ export const Home = () => {
                 id="edit-meal-description"
                 value={mealDescription}
                 onChange={(e) => setMealDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-meal-ingredients">Ingredients</Label>
+              <Textarea
+                id="edit-meal-ingredients"
+                placeholder="List ingredients (one per line)"
+                value={mealIngredients}
+                onChange={(e) => setMealIngredients(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-meal-instructions">Instructions</Label>
+              <Textarea
+                id="edit-meal-instructions"
+                placeholder="Step by step instructions"
+                value={mealInstructions}
+                onChange={(e) => setMealInstructions(e.target.value)}
+                rows={4}
               />
             </div>
             <Button onClick={handleUpdateMeal} className="w-full">
@@ -1223,6 +1287,58 @@ export const Home = () => {
       </Dialog>
 
       <BottomNav />
+      
+      {/* Custom Sign In Notification */}
+      {showSignInNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up">
+          <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Lock className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium">Sign in for more features</span>
+              </div>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs"
+                onClick={() => {
+                  setShowSignInNotification(false);
+                  navigate('/auth');
+                }}
+              >
+                Sign In
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Custom Subscription Notification */}
+      {showSubscriptionNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up">
+          <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Crown className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium">Subscribe for more features</span>
+              </div>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs"
+                onClick={() => {
+                  setShowSubscriptionNotification(false);
+                  navigate('/billing');
+                }}
+              >
+                Subscribe
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -35,18 +35,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      // Check if user was in guest mode
+      const guestMode = localStorage.getItem('guest_mode');
+      if (guestMode === 'true') {
+        setIsGuest(true);
+        setIsLoading(false);
+        return;
+      }
+      
       // First check if backend is available
       try {
         const isHealthy = await apiService.checkHealth();
         if (!isHealthy) {
           console.warn('Backend server is not available, continuing in guest mode');
           setIsGuest(true);
+          localStorage.setItem('guest_mode', 'true');
           setIsLoading(false);
           return;
         }
       } catch (error) {
         console.warn('Health check failed, continuing in guest mode', error);
         setIsGuest(true);
+        localStorage.setItem('guest_mode', 'true');
         setIsLoading(false);
         return;
       }
@@ -93,12 +103,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('guest_mode');
     setUser(null);
     setIsAuthenticated(false);
     setIsGuest(false);
   };
 
   const continueAsGuest = () => {
+    localStorage.setItem('guest_mode', 'true');
+    localStorage.setItem('guest_current_page', window.location.pathname);
     setIsGuest(true);
     setIsAuthenticated(false);
   };

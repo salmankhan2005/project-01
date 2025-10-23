@@ -157,6 +157,13 @@ export const SavedRecipesProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const unsaveRecipe = async (recipeId: number | string) => {
+    // Check if it's a created recipe (can't unsave created recipes, only delete them)
+    const isCreatedRecipe = createdRecipes.some(r => r.id.toString() === recipeId.toString());
+    if (isCreatedRecipe) {
+      toast.info('This is your created recipe. Use delete option to remove it.');
+      return;
+    }
+    
     if (isAuthenticated) {
       // For authenticated users, remove from user_recipes table
       try {
@@ -169,25 +176,28 @@ export const SavedRecipesProvider = ({ children }: { children: ReactNode }) => {
         });
         
         if (response.ok) {
-          setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+          setSavedRecipes(prev => prev.filter(r => r.id.toString() !== recipeId.toString()));
           toast.success('Recipe removed');
         } else {
           throw new Error('Failed to remove recipe');
         }
       } catch (error) {
         // Fallback to localStorage
-        setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+        setSavedRecipes(prev => prev.filter(r => r.id.toString() !== recipeId.toString()));
         toast.info('Recipe removed locally');
       }
     } else {
       // For guests, remove from localStorage
-      setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+      setSavedRecipes(prev => prev.filter(r => r.id.toString() !== recipeId.toString()));
     }
   };
 
   const isRecipeSaved = (recipeId: number | string) => {
-    return savedRecipes.some(r => r.id === recipeId) || 
-           createdRecipes.some(r => r.id === recipeId);
+    // Check if it's in saved recipes
+    const inSaved = savedRecipes.some(r => r.id.toString() === recipeId.toString());
+    // Check if it's a created recipe (created recipes are automatically "saved")
+    const inCreated = createdRecipes.some(r => r.id.toString() === recipeId.toString());
+    return inSaved || inCreated;
   };
 
   const createRecipe = async (recipe: Recipe) => {
