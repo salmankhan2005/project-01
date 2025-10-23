@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { GlowCard } from '@/components/GlowCard';
 import { 
   User, Settings, Bell, Crown, HelpCircle, 
-  LogOut, Share2, ChevronRight, BarChart3, CreditCard, MessageSquare, Mail, AlertTriangle 
+  LogOut, Share2, ChevronRight, BarChart3, CreditCard, MessageSquare, Mail 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,14 +24,13 @@ export const More = () => {
     { icon: User, label: 'Profile', path: '/profile', auth: true },
 
     { icon: BarChart3, label: 'Analytics', path: '/analytics', auth: true },
-    { icon: CreditCard, label: 'Billing & Subscription', path: '/billing', auth: true },
-    { icon: Mail, label: 'Email Settings', path: '/email-settings', auth: false },
-    { icon: AlertTriangle, label: 'Support Notifications', path: '/admin-notifications', auth: false },
+    { icon: CreditCard, label: 'Billing & Subscription', path: '/billing', auth: false },
+    { icon: Mail, label: 'Email Settings', path: '/email-settings', auth: true },
+
     { icon: Settings, label: 'Settings', path: '/settings', auth: false },
     { icon: Bell, label: 'Notifications', path: '/notifications', auth: false },
-    { icon: Crown, label: 'Go Premium', path: '/premium', auth: false, highlight: true },
-    { icon: HelpCircle, label: 'Help & QA', path: '/help', auth: false },
-    { icon: MessageSquare, label: 'Enhanced Support', path: '/support', auth: false },
+    { icon: Crown, label: 'Unlock', path: '/billing', auth: false, highlight: true },
+    { icon: MessageSquare, label: 'Enhanced Support & Help', path: '/support', auth: false },
   ];
 
   const professionalItems = [

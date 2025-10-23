@@ -64,6 +64,7 @@ export const RecipeDetail = () => {
   const [newRating, setNewRating] = useState(0);
   const [newReview, setNewReview] = useState('');
   const [dbRecipe, setDbRecipe] = useState(null);
+  const [discoverRecipe, setDiscoverRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   
   const recipeId = parseInt(id || '0');
@@ -75,20 +76,67 @@ export const RecipeDetail = () => {
   }, [id, isAuthenticated]);
   
   const loadRecipeDetails = async () => {
+    let foundRecipe = null;
+    
+    // Check localStorage first (for guest recipes)
     try {
-      if (isAuthenticated && id) {
-        const response = await apiService.getRecipeDetails(id);
-        setDbRecipe(response.recipe);
+      const guestDiscoverRecipes = localStorage.getItem('guest_discover_recipes');
+      const guestCreatedRecipes = localStorage.getItem('createdRecipes');
+      const savedRecipes = localStorage.getItem('savedRecipes');
+      
+      if (guestDiscoverRecipes) {
+        const discoverRecipes = JSON.parse(guestDiscoverRecipes);
+        foundRecipe = discoverRecipes.find(r => r.id.toString() === id);
+      }
+      
+      if (!foundRecipe && guestCreatedRecipes) {
+        const createdRecipes = JSON.parse(guestCreatedRecipes);
+        foundRecipe = createdRecipes.find(r => r.id.toString() === id);
+      }
+      
+      if (!foundRecipe && savedRecipes) {
+        const recipes = JSON.parse(savedRecipes);
+        foundRecipe = recipes.find(r => r.id.toString() === id);
+      }
+      
+      if (foundRecipe) {
+        setDiscoverRecipe(foundRecipe);
       }
     } catch (error) {
-      console.log('Recipe not found in database, using static data');
-    } finally {
-      setLoading(false);
+      console.log('Error loading from localStorage:', error);
     }
+    
+    // Try database if authenticated and not found locally
+    if (!foundRecipe && isAuthenticated && id) {
+      try {
+        const response = await apiService.getRecipeDetails(id);
+        if (response.recipe) {
+          setDbRecipe(response.recipe);
+          foundRecipe = response.recipe;
+        }
+      } catch (error) {
+        console.log('Recipe not found in database');
+      }
+    }
+    
+    // Try discover recipes API as last resort
+    if (!foundRecipe) {
+      try {
+        const discoverResponse = await apiService.getDiscoverRecipes();
+        foundRecipe = discoverResponse.recipes?.find(r => r.id.toString() === id);
+        if (foundRecipe) {
+          setDiscoverRecipe(foundRecipe);
+        }
+      } catch (error) {
+        console.log('Failed to load from API');
+      }
+    }
+    
+    setLoading(false);
   };
   
-  // Try database recipe first, then static data, then saved recipes
-  const recipe = dbRecipe || recipeData[recipeId as keyof typeof recipeData] || savedRecipes.find(r => r.id === recipeId);
+  // Try database recipe first, then discover recipe, then static data, then saved recipes
+  const recipe = dbRecipe || discoverRecipe || recipeData[recipeId as keyof typeof recipeData] || savedRecipes.find(r => r.id === recipeId);
   const isSaved = isRecipeSaved(recipeId);
   
   const handleSaveToggle = () => {
@@ -161,7 +209,10 @@ export const RecipeDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      <Header title="Recipe Details" showNotifications={false} />
+      <Header 
+        title={window.location.pathname.includes('/discover') || document.referrer.includes('/discover') ? 'Discover' : 'Recipe Details'} 
+        showNotifications={false} 
+      />
       
       <main>
         {/* Hero Image */}

@@ -72,6 +72,20 @@ export const RecipeBuilder = () => {
       } else {
         // Save locally for guest users
         createRecipe(newRecipe);
+        
+        // Also add to discover recipes for guest mode
+        const existingDiscoverRecipes = localStorage.getItem('guest_discover_recipes');
+        const discoverRecipes = existingDiscoverRecipes ? JSON.parse(existingDiscoverRecipes) : [];
+        discoverRecipes.unshift(newRecipe);
+        localStorage.setItem('guest_discover_recipes', JSON.stringify(discoverRecipes));
+        
+        // Add to created recipes list (use the same key as SavedRecipesContext)
+        const existingCreatedRecipes = localStorage.getItem('createdRecipes');
+        const createdRecipes = existingCreatedRecipes ? JSON.parse(existingCreatedRecipes) : [];
+        createdRecipes.unshift(newRecipe);
+        localStorage.setItem('createdRecipes', JSON.stringify(createdRecipes));
+        localStorage.setItem('guest_created_recipes', JSON.stringify(createdRecipes));
+        
         toast.success('Recipe created and saved locally!');
       }
       navigate('/discover');
