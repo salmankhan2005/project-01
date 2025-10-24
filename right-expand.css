@@ -1,0 +1,18 @@
+.speech-bubble {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  width: min-content;
+  min-width: 100px;
+  max-width: calc(100vw - 80px);
+  margin-left: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.speech-bubble.expand {
+  white-space: normal;
+  width: auto;
+}

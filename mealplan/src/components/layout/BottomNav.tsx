@@ -24,6 +24,7 @@ export const BottomNav = () => {
             <Link
               key={path}
               to={path}
+              data-tour={label.toLowerCase()}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 py-1.5 xs:py-2 sm:py-3 gap-0.5 xs:gap-1 sm:gap-1.5 rounded-lg hover:scale-105 touch-manipulation min-w-0",
                 isActive 

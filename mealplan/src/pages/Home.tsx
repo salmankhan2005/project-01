@@ -14,6 +14,8 @@ import { ChevronDown, ChevronUp, Trash2, Edit, Coffee, UtensilsCrossed, Apple, C
 import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
 import { useUserData } from '@/contexts/UserDataContext';
+import { useTour } from '@/contexts/TourContext';
+import { GuidedTour } from '@/components/GuidedTour';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -63,6 +65,7 @@ export const Home = () => {
   const { isGuest, isSubscribed, isAuthenticated } = useAuth();
   const { getMealsForDay, removeFromMealPlan, addToMealPlan, loading: mealPlanLoading, mealPlan, currentWeek, setCurrentWeek } = useMealPlan();
   const { people, preferences, addPerson, updatePerson, deletePerson, updatePreferences } = useUserData();
+  const { showTour, completeTour } = useTour();
   const navigate = useNavigate();
   const [selectedWeek, setSelectedWeek] = useState(preferences.selectedWeek);
   const [selectedFood, setSelectedFood] = useState<string>('');
@@ -1239,6 +1242,9 @@ export const Home = () => {
       </Dialog>
 
       <BottomNav />
+      
+      {/* Guided Tour */}
+      <GuidedTour isVisible={showTour} onComplete={completeTour} />
       
       {/* Custom Sign In Notification */}
       {showSignInNotification && (
