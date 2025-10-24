@@ -168,6 +168,8 @@ export const Home = () => {
       setMealName('');
       setMealDescription('');
       setAddMealOpen(false);
+      // Dispatch custom event to notify Shopping page
+      window.dispatchEvent(new CustomEvent('mealsUpdated'));
     } catch (error) {
       toast.error('Failed to add meal');
     }
