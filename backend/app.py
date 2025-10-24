@@ -2212,6 +2212,126 @@ def get_billing_history():
         logging.error(f'Get billing history error: {e}')
         return jsonify({'error': 'Failed to get billing history'}), 500
 
+# Notification endpoints
+@app.route('/api/notifications', methods=['GET', 'POST', 'OPTIONS'])
+def notifications():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        return response, 200
+    
+    try:
+        if request.method == 'GET':
+            # Get all notifications excluding deleted ones for this user
+            user_id = 'guest_user'  # For guest users
+            
+            # Get all active notifications
+            notifications = supabase.table('notifications').select('*').eq('is_active', True).order('created_at', desc=True).execute()
+            
+            # Get user's notification status (read/deleted)
+            user_status = supabase.table('user_notification_status').select('*').eq('user_id', user_id).execute()
+            status_map = {status['notification_id']: status for status in user_status.data}
+            
+            # Filter out deleted notifications and add read status
+            filtered_notifications = []
+            for notif in notifications.data:
+                status = status_map.get(notif['id'], {})
+                if not status.get('is_deleted', False):
+                    notif['is_read'] = status.get('is_read', False)
+                    filtered_notifications.append(notif)
+            
+            return jsonify(filtered_notifications), 200
+            
+        elif request.method == 'POST':
+            # Create new notification (admin only)
+            data = request.get_json()
+            
+            notification_data = {
+                'title': data.get('title'),
+                'message': data.get('message'),
+                'target_audience': data.get('target_audience', 'All Users'),
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            result = supabase.table('notifications').insert(notification_data).execute()
+            
+            if result.data:
+                return jsonify({'success': True, 'message': 'Notification created'}), 201
+            else:
+                return jsonify({'error': 'Failed to create notification'}), 500
+        
+    except Exception as e:
+        logging.error(f'Notifications error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notifications/<notification_id>/read', methods=['POST', 'OPTIONS'])
+def mark_notification_read(notification_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # For guest users, use a guest identifier
+        user_id = 'guest_user'
+        
+        # Check if record exists
+        existing = supabase.table('user_notification_status').select('*').eq('user_id', user_id).eq('notification_id', notification_id).execute()
+        
+        if existing.data:
+            # Update existing record
+            supabase.table('user_notification_status').update({
+                'is_read': True,
+                'read_at': datetime.now(timezone.utc).isoformat()
+            }).eq('user_id', user_id).eq('notification_id', notification_id).execute()
+        else:
+            # Create new record
+            supabase.table('user_notification_status').insert({
+                'user_id': user_id,
+                'notification_id': notification_id,
+                'is_read': True,
+                'read_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+        
+        return jsonify({'success': True, 'message': 'Marked as read'}), 200
+        
+    except Exception as e:
+        logging.error(f'Mark read error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notifications/<notification_id>/delete', methods=['DELETE', 'OPTIONS'])
+def delete_notification_for_user(notification_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        # For guest users, use a guest identifier
+        user_id = 'guest_user'
+        
+        # Check if record exists
+        existing = supabase.table('user_notification_status').select('*').eq('user_id', user_id).eq('notification_id', notification_id).execute()
+        
+        if existing.data:
+            # Update existing record
+            supabase.table('user_notification_status').update({
+                'is_deleted': True,
+                'deleted_at': datetime.now(timezone.utc).isoformat()
+            }).eq('user_id', user_id).eq('notification_id', notification_id).execute()
+        else:
+            # Create new record
+            supabase.table('user_notification_status').insert({
+                'user_id': user_id,
+                'notification_id': notification_id,
+                'is_deleted': True,
+                'deleted_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+        
+        return jsonify({'success': True, 'message': 'Notification deleted'}), 200
+        
+    except Exception as e:
+        logging.error(f'Delete notification error: {e}')
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     port = int(os.getenv('PORT', 5000))
