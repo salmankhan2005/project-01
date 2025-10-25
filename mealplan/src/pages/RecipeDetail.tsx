@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Clock, Users, Heart, Share, Plus } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Heart, Share, Plus, Volume2, VolumeX } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useReviews } from '@/contexts/ReviewsContext';
@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
+import { TTSService } from '@/utils/textToSpeech';
 
 const recipeData = {
   1: {
@@ -66,6 +67,8 @@ export const RecipeDetail = () => {
   const [dbRecipe, setDbRecipe] = useState(null);
   const [discoverRecipe, setDiscoverRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [currentStep, setCurrentStep] = useState(-1);
   
   const recipeId = parseInt(id || '0');
   const recipeReviews = getRecipeReviews(recipeId);
@@ -187,6 +190,62 @@ export const RecipeDetail = () => {
     setNewRating(0);
     setNewReview('');
   };
+
+  const handleSpeakInstructions = async () => {
+    if (isSpeaking) {
+      await TTSService.stop();
+      setIsSpeaking(false);
+      setCurrentStep(-1);
+      return;
+    }
+
+    if (!recipe?.instructions) return;
+
+    // Request permissions first
+    const hasPermission = await TTSService.requestPermissions();
+    if (!hasPermission) {
+      toast.error('Text-to-speech not available on this device');
+      return;
+    }
+
+    setIsSpeaking(true);
+    const instructions = recipe.instructions;
+    
+    try {
+      await TTSService.speak(`Starting recipe instructions for ${recipe.name}`);
+      
+      for (let i = 0; i < instructions.length; i++) {
+        if (!isSpeaking) break; // Check if user stopped
+        setCurrentStep(i);
+        await TTSService.speak(`Step ${i + 1}. ${instructions[i]}`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Pause between steps
+      }
+      
+      if (isSpeaking) {
+        await TTSService.speak('Recipe instructions complete. Enjoy your meal!');
+      }
+    } catch (error) {
+      console.error('TTS error:', error);
+      toast.error('Failed to read instructions aloud');
+    } finally {
+      setIsSpeaking(false);
+      setCurrentStep(-1);
+    }
+  };
+
+  const handleSpeakStep = async (stepIndex: number, instruction: string) => {
+    try {
+      const hasPermission = await TTSService.requestPermissions();
+      if (!hasPermission) {
+        toast.error('Text-to-speech not available');
+        return;
+      }
+      await TTSService.speak(`Step ${stepIndex + 1}. ${instruction}`);
+    } catch (error) {
+      console.error('TTS error:', error);
+      toast.error('Failed to read step aloud');
+    }
+  };
   
   if (loading) {
     return (
@@ -272,14 +331,42 @@ export const RecipeDetail = () => {
           </Card>
 
           <Card className="p-6 mb-6">
-            <h2 className="text-xl font-heading font-semibold mb-4">Instructions</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-heading font-semibold">Instructions</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSpeakInstructions}
+                className="flex items-center gap-2"
+              >
+                {isSpeaking ? (
+                  <><VolumeX className="w-4 h-4" /> Stop</>
+                ) : (
+                  <><Volume2 className="w-4 h-4" /> Read Aloud</>
+                )}
+              </Button>
+            </div>
             <ol className="space-y-4">
               {recipe.instructions?.map((instruction, index) => (
-                <li key={index} className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                <li key={index} className={`flex gap-3 p-3 rounded-lg transition-colors ${
+                  currentStep === index ? 'bg-primary/10 border border-primary/20' : 'hover:bg-muted/50'
+                }`}>
+                  <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    currentStep === index ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                  }`}>
                     {index + 1}
                   </span>
-                  <p>{instruction}</p>
+                  <div className="flex-1">
+                    <p>{instruction}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSpeakStep(index, instruction)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </Button>
                 </li>
               ))}
             </ol>

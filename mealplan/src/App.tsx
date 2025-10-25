@@ -15,6 +15,7 @@ import { TourProvider } from "@/contexts/TourContext";
 import { ThemeProvider } from "next-themes";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 // Pages
 import { Splash } from "./pages/Splash";
@@ -100,7 +101,7 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Set viewport meta tag for proper mobile rendering
+  // Set viewport meta tag for proper mobile rendering and handle back button
   React.useEffect(() => {
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
@@ -112,10 +113,47 @@ const App = () => {
       document.head.appendChild(meta);
     }
 
-    // Configure status bar for Capacitor
+    // Configure status bar and back button for Capacitor
     if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: Style.Dark });
       StatusBar.setBackgroundColor({ color: '#000000' });
+      StatusBar.setOverlaysWebView({ overlay: false });
+      
+      // Handle hardware back button
+      const handleBackButton = () => {
+        const currentPath = window.location.pathname;
+        
+        // Define routes where back button should navigate within app
+        const navigableRoutes = [
+          '/recipe/', '/recipe-builder', '/profile', '/settings', 
+          '/notifications', '/help', '/support', '/premium',
+          '/billing', '/analytics', '/meal-sharing', '/client-view'
+        ];
+        
+        const isNavigableRoute = navigableRoutes.some(route => 
+          currentPath.includes(route)
+        );
+        
+        if (isNavigableRoute) {
+          // Navigate back within the app
+          window.history.back();
+        } else if (currentPath === '/home' || currentPath === '/recipes' || 
+                   currentPath === '/discover' || currentPath === '/shopping' || 
+                   currentPath === '/more') {
+          // On main tabs, minimize app instead of closing
+          CapacitorApp.minimizeApp();
+        } else {
+          // Default navigation back
+          window.history.back();
+        }
+      };
+      
+      // Listen for back button
+      CapacitorApp.addListener('backButton', handleBackButton);
+      
+      return () => {
+        CapacitorApp.removeAllListeners();
+      };
     }
   }, []);
 

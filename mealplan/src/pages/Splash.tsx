@@ -87,16 +87,19 @@ export const Splash = () => {
             ? 'opacity-100 translate-y-0' 
             : 'opacity-0 translate-y-4'
         }`}>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0s', animationDuration: '1s' }}>F</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.1s', animationDuration: '1s' }}>r</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '1s' }}>e</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.3s', animationDuration: '1s' }}>s</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.4s', animationDuration: '1s' }}>h</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0s', animationDuration: '1s' }}>M</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.1s', animationDuration: '1s' }}>e</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '1s' }}>a</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.3s', animationDuration: '1s' }}>l</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.4s', animationDuration: '1s' }}>&nbsp;</span>
           <span className="inline-block animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '1s' }}>P</span>
           <span className="inline-block animate-bounce" style={{ animationDelay: '0.6s', animationDuration: '1s' }}>l</span>
           <span className="inline-block animate-bounce" style={{ animationDelay: '0.7s', animationDuration: '1s' }}>a</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.8s', animationDuration: '1s' }}>t</span>
-          <span className="inline-block animate-bounce" style={{ animationDelay: '0.9s', animationDuration: '1s' }}>e</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.8s', animationDuration: '1s' }}>n</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '0.9s', animationDuration: '1s' }}>&nbsp;</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '1.0s', animationDuration: '1s' }}>P</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '1.1s', animationDuration: '1s' }}>r</span>
+          <span className="inline-block animate-bounce" style={{ animationDelay: '1.2s', animationDuration: '1s' }}>o</span>
         </h1>
         
         {/* Subtitle with fade-in effect */}

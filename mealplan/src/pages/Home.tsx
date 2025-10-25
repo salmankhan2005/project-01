@@ -19,7 +19,7 @@ import { GuidedTour } from '@/components/GuidedTour';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { sanitizeInput, generateSecureId } from '@/utils/security';
+import { sanitizeHtml, validateInput } from '@/utils/security';
 import { apiService } from '@/services/api';
 
 const mealTimes = [
@@ -145,7 +145,7 @@ export const Home = () => {
         // Save to backend
         await addToMealPlan({
           recipeId: `meal-${Date.now()}`,
-          recipeName: sanitizeInput(mealName),
+          recipeName: sanitizeHtml(mealName),
           day: selectedDay,
           mealTime: selectedMealTime,
           servings: 1,
@@ -157,7 +157,7 @@ export const Home = () => {
         // Use MealPlanContext for guests (now with localStorage)
         await addToMealPlan({
           recipeId: `meal-${Date.now()}`,
-          recipeName: sanitizeInput(mealName),
+          recipeName: sanitizeHtml(mealName),
           day: selectedDay,
           mealTime: selectedMealTime,
           servings: 1,
@@ -200,7 +200,7 @@ export const Home = () => {
         // Update via backend - remove old and add new
         await addToMealPlan({
           recipeId: `meal-${Date.now()}`,
-          recipeName: sanitizeInput(mealName),
+          recipeName: sanitizeHtml(mealName),
           day: selectedDay,
           mealTime: editingMeal.time,
           servings: mealServings,
@@ -212,7 +212,7 @@ export const Home = () => {
         // Use MealPlanContext for guests
         await addToMealPlan({
           recipeId: `meal-${Date.now()}`,
-          recipeName: sanitizeInput(mealName),
+          recipeName: sanitizeHtml(mealName),
           day: selectedDay,
           mealTime: editingMeal.time,
           servings: mealServings,
@@ -342,7 +342,7 @@ export const Home = () => {
       // Use MealPlanContext to add to backend
       await addToMealPlan({
         recipeId: `quick-${Date.now()}`, // Generate unique ID for quick add
-        recipeName: sanitizeInput(mealName),
+        recipeName: sanitizeHtml(mealName),
         day: dayName,
         mealTime: selectedMealTime,
         servings: 1,
@@ -373,9 +373,9 @@ export const Home = () => {
     
     try {
       await addPerson({
-        name: sanitizeInput(newPersonName.trim()),
-        preferences: sanitizeInput(newPersonPreferences.trim()),
-        allergies: sanitizeInput(newPersonAllergies.trim())
+        name: sanitizeHtml(newPersonName.trim()),
+        preferences: sanitizeHtml(newPersonPreferences.trim()),
+        allergies: sanitizeHtml(newPersonAllergies.trim())
       });
       
       toast.success(`${newPersonName} added successfully!`);
@@ -413,7 +413,7 @@ export const Home = () => {
     
     try {
       await updatePerson(editingPerson.id, {
-        name: sanitizeInput(editPersonName.trim())
+        name: sanitizeHtml(editPersonName.trim())
       });
       
       toast.success('Person updated successfully!');
@@ -451,7 +451,7 @@ export const Home = () => {
       // Update meal using addToMealPlan (it will replace existing meal with same mealTime)
       await addToMealPlan({
         recipeId: editingMealPlan.recipeId,
-        recipeName: sanitizeInput(editMealPlanName.trim()),
+        recipeName: sanitizeHtml(editMealPlanName.trim()),
         day: selectedDay,
         mealTime: editingMealPlan.mealTime,
         servings: editingMealPlan.servings || 1,

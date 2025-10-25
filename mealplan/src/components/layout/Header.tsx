@@ -50,8 +50,8 @@ export const Header = ({ title, showNotifications = true, showProfile = true, sh
   }, []);
   
   return (
-    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border safe-area-top">
-      <div className="container-responsive flex items-center justify-between h-12 xs:h-14 sm:h-16 lg:h-18">
+    <header className="mobile-header">
+      <div className="container-responsive flex items-center justify-between h-14 sm:h-16 px-4">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {showBackButton && (
             <Button 
@@ -63,7 +63,7 @@ export const Header = ({ title, showNotifications = true, showProfile = true, sh
               <ArrowLeft className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6" />
             </Button>
           )}
-          <h1 className="heading-sm lg:heading-lg text-foreground truncate">
+          <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
             {title}
           </h1>
         </div>

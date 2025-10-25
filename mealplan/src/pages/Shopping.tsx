@@ -17,6 +17,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { InventoryAnimation } from '@/components/InventoryAnimation';
 import { apiService } from '@/services/api';
+import { RecentItemsManager } from '@/utils/recentItemsManager';
+import { sanitizeHtml, validateInput, sanitizeLogData } from '@/utils/security';
+import { ErrorHandler } from '@/utils/errorHandler';
 
 const mockItems = [
   { id: 1, name: 'Chicken Breast', category: 'Meat', checked: false },
@@ -34,7 +37,7 @@ export const Shopping = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
-  const [activeTab, setActiveTab] = useState('recent');
+  const [activeTab, setActiveTab] = useState('final');
   const [allItems, setAllItems] = useState<typeof mockItems>([]);
   const [pastItems, setPastItems] = useState<typeof mockItems>([]);
   const [recentItems, setRecentItems] = useState<any[]>([]);
@@ -68,6 +71,8 @@ export const Shopping = () => {
     loadMealIngredients();
   }, [savedRecipes, isGuest]);
 
+
+
   const loadMealIngredients = () => {
     const ingredients = new Set<string>();
     
@@ -78,14 +83,11 @@ export const Shopping = () => {
     // Get ingredients from guest meals (localStorage)
     try {
       const guestMeals = localStorage.getItem('guest_meals');
-      console.log('Guest meals data:', guestMeals);
       if (guestMeals) {
         const meals = JSON.parse(guestMeals);
-        console.log('Parsed meals:', meals);
         Object.values(meals).forEach((dayMeals: any) => {
           if (Array.isArray(dayMeals)) {
             dayMeals.forEach((meal: any) => {
-              console.log('Processing meal:', meal);
               if (meal.ingredients && Array.isArray(meal.ingredients)) {
                 meal.ingredients.forEach((ingredient: string) => {
                   if (ingredient && typeof ingredient === 'string') {
@@ -98,18 +100,19 @@ export const Shopping = () => {
         });
       }
     } catch (error) {
-      console.log('Error loading meal ingredients:', error);
+      ErrorHandler.logError(
+        ErrorHandler.handleApiError(error),
+        'loadMealIngredients'
+      );
     }
     
     // Convert to shopping items format
     const ingredientItems = Array.from(ingredients).map((ingredient, index) => ({
       id: `meal-ingredient-${index}`,
-      name: ingredient,
+      name: sanitizeHtml(ingredient),
       category: categorizeIngredient(ingredient),
       checked: false
     }));
-    
-    console.log('Final meal ingredients:', ingredientItems);
     setMealIngredients(ingredientItems);
   };
 
@@ -157,13 +160,16 @@ export const Shopping = () => {
         });
       }
     } catch (error) {
-      console.log('Error loading guest meals:', error);
+      ErrorHandler.logError(
+        ErrorHandler.handleApiError(error),
+        'loadRecipeIngredients'
+      );
     }
     
     // Convert to shopping items format
     const ingredientItems = Array.from(ingredients).map((ingredient, index) => ({
       id: `ingredient-${index}`,
-      name: ingredient,
+      name: sanitizeHtml(ingredient),
       category: categorizeIngredient(ingredient),
       checked: false
     }));
@@ -196,9 +202,17 @@ export const Shopping = () => {
         checked: item.is_completed
       })));
       
-      setRecentItems(recentResponse.recent_items);
+      // Filter out deleted items
+      const deletedItems = JSON.parse(localStorage.getItem('deletedRecentItems') || '[]');
+      const filteredItems = recentResponse.recent_items.filter(item => !deletedItems.includes(item.id));
+      setRecentItems(filteredItems);
     } catch (error) {
-      console.error('Failed to load shopping data:', error);
+      // Fallback to localStorage when backend is unavailable
+      const savedItems = localStorage.getItem('guest_shopping_items');
+      if (savedItems) {
+        setItems(JSON.parse(savedItems));
+      }
+      setRecentItems([]);
     } finally {
       setLoading(false);
     }
@@ -261,10 +275,21 @@ export const Shopping = () => {
   };
 
   const addItem = async () => {
-    if (!newItemName.trim() || !newItemCategory) {
+    const trimmedName = newItemName.trim();
+    
+    if (!trimmedName || !newItemCategory) {
       toast({
         title: "Missing information",
         description: "Please enter item name and category",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!validateInput(trimmedName, 100)) {
+      toast({
+        title: "Invalid input",
+        description: "Item name contains invalid characters or is too long",
         variant: "destructive",
       });
       return;
@@ -275,7 +300,7 @@ export const Shopping = () => {
     try {
       if (isAuthenticated) {
         const response = await apiService.addShoppingItem({
-          item_name: newItemName.trim(),
+          item_name: sanitizeHtml(trimmedName),
           category: newItemCategory,
           quantity: 1,
           unit: 'pcs'
@@ -290,14 +315,16 @@ export const Shopping = () => {
         
         setItems([newItem, ...items]);
         
-        // Refresh recent items
+        // Refresh recent items with filtering
         const recentResponse = await apiService.getRecentItems();
-        setRecentItems(recentResponse.recent_items);
+        const deletedItems = JSON.parse(localStorage.getItem('deletedRecentItems') || '[]');
+        const filteredItems = recentResponse.recent_items.filter(item => !deletedItems.includes(item.id));
+        setRecentItems(filteredItems);
       } else {
         // Fallback for non-authenticated users
         const newItem = {
-          id: Math.max(...items.map(i => i.id), 0) + 1,
-          name: newItemName.trim(),
+          id: Math.max(...items.map(i => typeof i.id === 'number' ? i.id : 0), 0) + 1,
+          name: sanitizeHtml(trimmedName),
           category: newItemCategory,
           checked: false,
         };
@@ -313,9 +340,11 @@ export const Shopping = () => {
         description: `${newItemName} has been added to your list`,
       });
     } catch (error) {
+      const appError = ErrorHandler.handleApiError(error);
+      ErrorHandler.logError(appError, 'addItem');
       toast({
         title: "Error",
-        description: "Failed to add item. Please try again.",
+        description: appError.message,
         variant: "destructive",
       });
     } finally {
@@ -354,6 +383,33 @@ export const Shopping = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const deleteRecentItem = async (recentItemId: string) => {
+    // Remove from UI immediately
+    setRecentItems(prev => prev.filter(item => item.id !== recentItemId));
+    
+    // Store in localStorage to prevent reappearing
+    const deletedItems = JSON.parse(localStorage.getItem('deletedRecentItems') || '[]');
+    deletedItems.push(recentItemId);
+    localStorage.setItem('deletedRecentItems', JSON.stringify(deletedItems));
+    
+    toast({
+      title: "Recent item removed",
+      description: "Item will not appear again",
+    });
+  };
+
+  // Utility function to clear deleted recent items history (for maintenance)
+  const clearDeletedRecentItems = () => {
+    localStorage.removeItem('deletedRecentItems');
+    if (isAuthenticated) {
+      loadShoppingData();
+    }
+    toast({
+      title: "Recent items history cleared",
+      description: "All previously deleted recent items will reappear",
+    });
   };
   
   const handleDone = () => {
@@ -421,16 +477,6 @@ export const Shopping = () => {
         <div className="mb-8">
           <div className="bg-muted/30 rounded-full p-2 flex">
             <button
-              onClick={() => setActiveTab('recent')}
-              className={`flex-1 py-3 px-6 rounded-full text-center font-medium transition-all ${
-                activeTab === 'recent'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-foreground hover:bg-muted/50'
-              }`}
-            >
-              Recent
-            </button>
-            <button
               onClick={() => setActiveTab('all')}
               className={`flex-1 py-3 px-6 rounded-full text-center font-medium transition-all ${
                 activeTab === 'all'
@@ -441,53 +487,19 @@ export const Shopping = () => {
               All items
             </button>
             <button
-              onClick={() => setActiveTab('past')}
+              onClick={() => setActiveTab('final')}
               className={`flex-1 py-3 px-6 rounded-full text-center font-medium transition-all ${
-                activeTab === 'past'
+                activeTab === 'final'
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-foreground hover:bg-muted/50'
               }`}
             >
-              Final Item
+              Final Items
             </button>
           </div>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'recent' && (
-          <div className="space-y-6">
-            <ShoppingList />
-            
-            {/* Recent Items Section */}
-            {recentItems.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Recent Items</h3>
-                <div className="space-y-2">
-                  {recentItems.map((item, idx) => (
-                    <GlowCard key={item.id} className="p-3 animate-fade-up bg-gradient-to-r from-muted/50 to-muted/30 hover:shadow-md" 
-                          style={{ animationDelay: `${idx * 0.05}s` }}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{item.item_name}</p>
-                          <p className="text-xs text-muted-foreground">{item.category}</p>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => addRecentItem(item)}
-                          className="h-8 px-3"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add
-                        </Button>
-                      </div>
-                    </GlowCard>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
         {activeTab === 'all' && (
           <div className="space-y-6">
             <div className="space-y-3">
@@ -541,90 +553,51 @@ export const Shopping = () => {
             </div>
           </div>
         )}
-        {activeTab === 'past' && (
+        {activeTab === 'final' && (
           <div className="space-y-6">
-            {/* Meal Ingredients Section */}
-            {mealIngredients.length > 0 && (
+            <ShoppingList />
+            
+            {/* Recent Items Section */}
+            {recentItems.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-4">Meal Ingredients</h3>
-                <div className="space-y-3">
-                  {mealIngredients.map((ingredient, idx) => (
-                    <GlowCard key={ingredient.id} className="p-4 animate-fade-up bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-blue-200/50" 
+                <h3 className="text-lg font-semibold mb-4">Recent Items</h3>
+                <div className="space-y-2">
+                  {recentItems.map((item, idx) => (
+                    <GlowCard key={item.id} className="p-3 animate-fade-up bg-gradient-to-r from-muted/50 to-muted/30 hover:shadow-md" 
                           style={{ animationDelay: `${idx * 0.05}s` }}>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Checkbox checked={false} className="data-[state=checked]:bg-primary" />
-                          <div className="flex-1">
-                            <p className="font-medium">{ingredient.name}</p>
-                            <p className="text-xs text-muted-foreground">{ingredient.category}</p>
-                          </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.item_name}</p>
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
                         </div>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const newItem = {
-                              id: Math.max(...items.map(i => typeof i.id === 'number' ? i.id : 0), 0) + 1,
-                              name: ingredient.name,
-                              category: ingredient.category,
-                              checked: false
-                            };
-                            const updatedItems = [newItem, ...items];
-                            setItems(updatedItems);
-                            
-                            if (isGuest) {
-                              localStorage.setItem('guest_shopping_items', JSON.stringify(updatedItems));
-                            }
-                            
-                            toast({
-                              title: "Item added",
-                              description: `${ingredient.name} added to your shopping list`,
-                            });
-                          }}
-                          className="h-8 px-3"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => addRecentItem(item)}
+                            className="h-8 px-3"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => deleteRecentItem(item.id)}
+                            className="h-8 px-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     </GlowCard>
                   ))}
                 </div>
               </div>
             )}
-            
-            {/* Past Items Section */}
-            <div>
-              {pastItems.length > 0 && <h3 className="text-lg font-semibold mb-4">Past Shopping Lists</h3>}
-              <div className="space-y-3">
-                {pastItems.length > 0 ? (
-                  pastItems.map((item, idx) => (
-                    <Card key={item.id} className="p-4 animate-fade-up" 
-                          style={{ animationDelay: `${idx * 0.05}s` }}>
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={item.checked}
-                          disabled
-                          className="data-[state=checked]:bg-primary"
-                        />
-                        <div className="flex-1">
-                          <p className={`font-medium ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
-                            {item.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{item.category}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                ) : mealIngredients.length === 0 ? (
-                  <Card className="p-8 text-center">
-                    <p className="text-muted-foreground">No meal ingredients or past shopping lists</p>
-                  </Card>
-                ) : null}
-              </div>
-            </div>
           </div>
         )}
+
 
         {/* Stats - Only show when not in 'all' tab */}
         {activeTab !== 'all' && (
@@ -647,7 +620,7 @@ export const Shopping = () => {
         )}
 
         {/* WhatsApp Share Button - Shows when items are checked */}
-        {activeTab === 'recent' && checkedItemsCount > 0 && (
+        {activeTab === 'final' && checkedItemsCount > 0 && (
           <div className="fixed bottom-24 right-4 z-50">
             <Button 
               onClick={shareToWhatsApp}
@@ -659,8 +632,8 @@ export const Shopping = () => {
           </div>
         )}
 
-        {/* Action Buttons - Only show in recent tab */}
-        {activeTab === 'recent' && (
+        {/* Action Buttons - Only show in final tab */}
+        {activeTab === 'final' && (
           <div className="space-y-3 mt-6">
             <Button 
               className={`w-full h-12 gap-2 ${

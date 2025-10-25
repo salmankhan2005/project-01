@@ -1,42 +1,57 @@
-// Security utilities for the application
-import DOMPurify from 'dompurify';
+/**
+ * Security utilities for input validation and sanitization
+ */
 
-// Input sanitization with DOMPurify
-export const sanitizeInput = (input: string): string => {
-  return DOMPurify.sanitize(input, { ALLOWED_TAGS: [] }).trim();
+// XSS Protection - Sanitize HTML content
+export const sanitizeHtml = (input: string): string => {
+  if (!input) return '';
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
 };
 
-// XSS prevention with DOMPurify
-export const sanitizeHtml = (html: string): string => {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br'],
-    ALLOWED_ATTR: []
-  });
+// Input validation
+export const validateInput = (input: string, maxLength: number = 255): boolean => {
+  if (!input || typeof input !== 'string') return false;
+  if (input.length > maxLength) return false;
+  // Check for malicious patterns
+  const maliciousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /data:text\/html/i
+  ];
+  return !maliciousPatterns.some(pattern => pattern.test(input));
 };
 
-// Validate email format
-export const isValidEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+// Log injection prevention
+export const sanitizeLogData = (data: any): string => {
+  if (typeof data === 'string') {
+    return data.replace(/[\r\n\t]/g, ' ').substring(0, 500);
+  }
+  return JSON.stringify(data).replace(/[\r\n\t]/g, ' ').substring(0, 500);
 };
 
-// Generate secure random string
-export const generateSecureId = (): string => {
-  return crypto.randomUUID();
+// CSRF token generation
+export const generateCSRFToken = (): string => {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 };
 
-// Content Security Policy headers (for backend implementation)
-export const getCSPHeaders = () => ({
-  'Content-Security-Policy': 
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline'; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; " +
-    "img-src 'self' data: https:; " +
-    "connect-src 'self'; " +
-    "frame-ancestors 'none';",
-  'X-Frame-Options': 'DENY',
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
-});
+// Secure headers for API requests
+export const getSecureHeaders = (token?: string): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};

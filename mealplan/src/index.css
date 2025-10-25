@@ -616,11 +616,44 @@ All colors MUST be HSL.
     padding-top: env(safe-area-inset-top);
   }
 
+  /* Mobile header visibility fixes */
+  .mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: hsl(var(--background) / 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid hsl(var(--border));
+    padding-top: env(safe-area-inset-top, 0);
+    min-height: 56px;
+  }
+
+  /* Ensure proper viewport on mobile */
+  @supports (height: 100dvh) {
+    .min-h-screen {
+      min-height: 100dvh;
+    }
+  }
+
   /* Better text rendering */
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Prevent zoom on input focus on iOS */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Fix for mobile input zoom */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  @media (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 
   /* Smooth scrolling for mobile */

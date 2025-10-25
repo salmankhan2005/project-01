@@ -1,4 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+import { getSecureHeaders, sanitizeLogData } from '../utils/security';
+import { ErrorHandler } from '../utils/errorHandler';
+import { config } from '../config/environment';
+
+const API_BASE_URL = config.apiUrl;
 
 interface AuthResponse {
   message: string;
@@ -53,16 +57,13 @@ class ApiService {
   
   private getAuthHeaders() {
     const token = localStorage.getItem('auth_token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    };
+    return getSecureHeaders(token || undefined);
   }
   
   async checkHealth(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
@@ -74,18 +75,15 @@ class ApiService {
       this.isBackendAvailable = response.ok;
       return response.ok;
     } catch (error) {
-      // Don't log AbortError as it's expected when timeout occurs
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.warn('Health check failed silently - continuing in offline mode');
-      }
       this.isBackendAvailable = false;
       return false;
     }
   }
 
   async register(data: LoginData): Promise<AuthResponse> {
-    if (!this.isBackendAvailable) {
-      // If we already know backend is unavailable, fail fast
+    // Check backend availability first
+    const isHealthy = await this.checkHealth();
+    if (!isHealthy) {
       throw new Error('Backend server is not available. Please try again later.');
     }
     
@@ -112,8 +110,9 @@ class ApiService {
   }
 
   async login(data: LoginData): Promise<AuthResponse> {
-    if (!this.isBackendAvailable) {
-      // If we already know backend is unavailable, fail fast
+    // Check backend availability first
+    const isHealthy = await this.checkHealth();
+    if (!isHealthy) {
       throw new Error('Backend server is not available. Please try again later.');
     }
     
@@ -284,6 +283,19 @@ class ApiService {
 
     if (!response.ok) {
       throw new Error('Failed to get recent items');
+    }
+
+    return response.json();
+  }
+
+  async deleteRecentItem(itemId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/shopping/recent/${itemId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete recent item');
     }
 
     return response.json();
@@ -629,8 +641,8 @@ class ApiService {
   // Recipe sync methods
   async getRecipeNotifications(): Promise<{ notifications: any[] }> {
     try {
-      const response = await fetch('http://127.0.0.1:5001/api/admin/recipes/sync', {
-        headers: { 'Content-Type': 'application/json' }
+      const response = await fetch(`${config.adminApiUrl}/admin/recipes/sync`, {
+        headers: this.getAuthHeaders()
       });
       
       if (response.ok) {
@@ -645,8 +657,8 @@ class ApiService {
 
   async getAdminRecipes(): Promise<{ recipes: any[] }> {
     try {
-      const response = await fetch('http://127.0.0.1:5001/api/admin/recipes/discover', {
-        headers: { 'Content-Type': 'application/json' }
+      const response = await fetch(`${config.adminApiUrl}/admin/recipes/discover`, {
+        headers: this.getAuthHeaders()
       });
       
       if (response.ok) {
