@@ -1,0 +1,136 @@
+[{
+  "version": "1.0",
+  "image": {
+    "name": "/var/www/imageconvert_usr/data/www/imageconvert.org/image/public/uploadt/genie_welcome.png",
+    "format": "json",
+    "formatDescription": "The image format and characteristics",
+    "mimeType": "application/json",
+    "class": "DirectClass",
+    "geometry": {
+      "width": 369,
+      "height": 677,
+      "x": 0,
+      "y": 0
+    },
+    "units": "Undefined",
+    "type": "TrueColorAlpha",
+    "endianness": "Undefined",
+    "colorspace": "sRGB",
+    "depth": 8,
+    "baseDepth": 8,
+    "channelDepth": {
+      "alpha": 8,
+      "red": 8,
+      "green": 8,
+      "blue": 8
+    },
+    "pixels": 249813,
+    "imageStatistics": {
+      "all": {
+        "min": 0,
+        "max": 255,
+        "mean": 60.3855,
+        "standardDeviation": 92.525,
+        "kurtosis": -0.347133,
+        "skewness": 1.17412,
+        "entropy": 0.368057
+      }
+    },
+    "channelStatistics": {
+      "alpha": {
+        "min": 255,
+        "max": 0,
+        "mean": 169.636,
+        "standardDeviation": 119.347,
+        "kurtosis": -1.49668,
+        "skewness": 0.699821,
+        "entropy": 0.165053
+      },
+      "red": {
+        "min": 0,
+        "max": 255,
+        "mean": 49.4501,
+        "standardDeviation": 78.9164,
+        "kurtosis": 0.45795,
+        "skewness": 1.36361,
+        "entropy": 0.437768
+      },
+      "green": {
+        "min": 0,
+        "max": 255,
+        "mean": 50.5088,
+        "standardDeviation": 79.6638,
+        "kurtosis": -0.255153,
+        "skewness": 1.18624,
+        "entropy": 0.439167
+      },
+      "blue": {
+        "min": 0,
+        "max": 255,
+        "mean": 56.2188,
+        "standardDeviation": 92.173,
+        "kurtosis": -0.145282,
+        "skewness": 1.27327,
+        "entropy": 0.430241
+      }
+    },
+    "alpha": "#00000000",
+    "renderingIntent": "Perceptual",
+    "gamma": 0.454545,
+    "chromaticity": {
+      "redPrimary": {
+        "x": 0.64,
+        "y": 0.33
+      },
+      "greenPrimary": {
+        "x": 0.3,
+        "y": 0.6
+      },
+      "bluePrimary": {
+        "x": 0.15,
+        "y": 0.06
+      },
+      "whitePrimary": {
+        "x": 0.3127,
+        "y": 0.329
+      }
+    },
+    "backgroundColor": "#FFFFFFFF",
+    "borderColor": "#DFDFDFFF",
+    "matteColor": "#BDBDBDFF",
+    "transparentColor": "#00000000",
+    "interlace": "None",
+    "intensity": "Undefined",
+    "compose": "Over",
+    "pageGeometry": {
+      "width": 369,
+      "height": 677,
+      "x": 0,
+      "y": 0
+    },
+    "dispose": "Undefined",
+    "iterations": 0,
+    "compression": "Zip",
+    "orientation": "Undefined",
+    "properties": {
+      "date:create": "2025-10-26T08:39:42+00:00",
+      "date:modify": "2025-10-26T08:39:42+00:00",
+      "png:IHDR.bit-depth-orig": "8",
+      "png:IHDR.bit_depth": "8",
+      "png:IHDR.color-type-orig": "6",
+      "png:IHDR.color_type": "6 (RGBA)",
+      "png:IHDR.interlace_method": "0 (Not interlaced)",
+      "png:IHDR.width,height": "369, 677",
+      "png:sRGB": "intent=0 (Perceptual Intent)",
+      "signature": "838bba489aa95eb6a98307b9da835c80fa2bd92081b7044ec60baf17a2095462"
+    },
+    "tainted": false,
+    "filesize": "239408B",
+    "numberPixels": "249813",
+    "pixelsPerSecond": "58.2461MB",
+    "userTime": "0.000u",
+    "elapsedTime": "0:01.004",
+    "version": "ImageMagick 6.9.11-60 Q16 x86_64 2021-01-25 https://imagemagick.org"
+  }
+}
+]

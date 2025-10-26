@@ -70,9 +70,7 @@ export const Home = () => {
   const { createRecipe } = useRecipeContext();
   const navigate = useNavigate();
   const [selectedWeek, setSelectedWeek] = useState(preferences.selectedWeek);
-  const [selectedFood, setSelectedFood] = useState<string>('');
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
-  const [foodDropdownOpen, setFoodDropdownOpen] = useState(false);
   const [meals, setMeals] = useState<Record<string, Meal[]>>(initialMeals);
 
 
@@ -90,8 +88,7 @@ export const Home = () => {
   const [selectedAssignedTo, setSelectedAssignedTo] = useState<string | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [craftMealOpen, setCraftMealOpen] = useState(false);
-  const [planMonthOpen, setPlanMonthOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
   const [craftMealName, setCraftMealName] = useState('');
   const [craftMealIngredients, setCraftMealIngredients] = useState('');
   const [craftMealInstructions, setCraftMealInstructions] = useState('');
@@ -106,11 +103,9 @@ export const Home = () => {
   const [editPersonOpen, setEditPersonOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editPersonName, setEditPersonName] = useState('');
-  const [planMonthLoading, setPlanMonthLoading] = useState(false);
+
   const [craftMealLoading, setCraftMealLoading] = useState(false);
-  const [editMealPlanOpen, setEditMealPlanOpen] = useState(false);
-  const [editingMealPlan, setEditingMealPlan] = useState<any>(null);
-  const [editMealPlanName, setEditMealPlanName] = useState('');
+
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [showSignInNotification, setShowSignInNotification] = useState(false);
@@ -294,27 +289,7 @@ export const Home = () => {
     }
   };
 
-  const handlePlanMonth = async () => {
-    if (!selectedDate) {
-      toast.error('Please select a date');
-      return;
-    }
-    
-    setPlanMonthLoading(true);
-    try {
-      if (isAuthenticated) {
-        await apiService.createMonthPlan(selectedDate.getMonth() + 1, selectedDate.getFullYear());
-      }
-      
-      const monthName = selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-      toast.success(`Meal plan created for ${monthName}!`);
-      setPlanMonthOpen(false);
-    } catch (error) {
-      toast.error('Failed to create meal plan');
-    } finally {
-      setPlanMonthLoading(false);
-    }
-  };
+
 
   const handleCalendarMealAdd = (date: Date, mealTime: string) => {
     const dateKey = date.toDateString();
@@ -438,39 +413,16 @@ export const Home = () => {
   };
 
   const handleEditMealPlan = (mealPlanItem: any, day: string) => {
-    setEditingMealPlan(mealPlanItem);
-    setEditMealPlanName(mealPlanItem.recipeName);
-    setSelectedDay(day);
-    setEditMealPlanOpen(true);
+    const params = new URLSearchParams({
+      day: day,
+      mealTime: mealPlanItem.mealTime,
+      currentMeal: mealPlanItem.recipeName || '',
+      week: selectedWeek || 'Week - 1'
+    });
+    navigate(`/edit-meal?${params.toString()}`);
   };
 
-  const handleUpdateMealPlan = async () => {
-    if (!editMealPlanName.trim() || !editingMealPlan) {
-      toast.error('Please enter meal name');
-      return;
-    }
-    
-    try {
-      // Update meal using addToMealPlan (it will replace existing meal with same mealTime)
-      await addToMealPlan({
-        recipeId: editingMealPlan.recipeId,
-        recipeName: sanitizeHtml(editMealPlanName.trim()),
-        day: selectedDay,
-        mealTime: editingMealPlan.mealTime,
-        servings: editingMealPlan.servings || 1,
-        image: editingMealPlan.image || '🍽️',
-        time: editingMealPlan.time,
-        week: editingMealPlan.week || selectedWeek
-      });
-      
-      toast.success('Meal updated successfully!');
-      setEditMealPlanOpen(false);
-      setEditingMealPlan(null);
-      setEditMealPlanName('');
-    } catch (error) {
-      toast.error('Failed to update meal');
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -483,20 +435,9 @@ export const Home = () => {
       <main className="container-responsive py-6 space-y-6">
 
         
-        {/* Action buttons */}
-        <div className="grid grid-cols-1 gap-4">
-          <Button 
-            className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-            onClick={() => setPlanMonthOpen(true)}
-          >
-            Plan your month
-          </Button>
-        </div>
 
-
-
-        {/* Horizontal Row: Week, Food for, Quick Add */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Horizontal Row: Week, Quick Add */}
+        <div className="grid grid-cols-2 gap-4">
           {/* Week Dropdown */}
           <div className="relative">
             <Button
@@ -504,7 +445,6 @@ export const Home = () => {
               className="w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground"
               onClick={() => {
                 setWeekDropdownOpen(!weekDropdownOpen);
-                setFoodDropdownOpen(false);
               }}
             >
               {selectedWeek || 'Week'}
@@ -549,122 +489,11 @@ export const Home = () => {
             )}
           </div>
 
-          {/* Food for Dropdown */}
-          <div className="relative">
-            <Button
-              variant="outline"
-              className={`w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground ${!isSubscribed ? 'opacity-50' : ''}`}
-              onClick={() => {
-                if (!isSubscribed) {
-                  setShowSubscriptionNotification(true);
-                  setTimeout(() => setShowSubscriptionNotification(false), 3000);
-                  return;
-                }
-                setFoodDropdownOpen(!foodDropdownOpen);
-                setWeekDropdownOpen(false);
-              }}
-            >
-              {selectedFood ? people.find(p => p.id.toString() === selectedFood)?.name || 'Food for' : 'Food for'}
-              {!isSubscribed && <Lock className="w-4 h-4 ml-2" />}
-              {isSubscribed && (foodDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
-            </Button>
-            {foodDropdownOpen && (
-              <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-card border-border">
-                <div className="p-2 space-y-1">
-                  {people.map((person) => {
-                    const isLocked = !isSubscribed && person.name === 'Person B';
-                    return (
-                      <div
-                        key={person.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => { 
-                          if (!isLocked) {
-                            setSelectedFood(person.id.toString()); 
-                            setFoodDropdownOpen(false);
-                          } else {
-                            setFoodDropdownOpen(false);
-                            setShowSubscriptionNotification(true);
-                            setTimeout(() => setShowSubscriptionNotification(false), 3000);
-                          }
-                        }}
-                        onKeyDown={(e) => { 
-                          if (!isLocked && (e.key === 'Enter' || e.key === ' ')) { 
-                            e.preventDefault(); 
-                            setSelectedFood(person.name); 
-                            setFoodDropdownOpen(false); 
-                          } 
-                        }}
-                        className={`flex items-center justify-between p-3 border-b border-border last:border-b-0 ${
-                          isLocked 
-                            ? 'opacity-50 cursor-not-allowed' 
-                            : 'cursor-pointer hover:bg-muted/50'
-                        } ${selectedFood === person.id.toString() ? 'bg-muted/20' : ''}`}
-                      >
-                        <div className="flex-1 flex items-center gap-2">
-                          <span className="text-foreground font-medium">{person.name}</span>
-                          {isLocked && <Lock className="w-4 h-4 text-muted-foreground" />}
-                          <div>
-                            {person.preferences && (
-                              <p className="text-xs text-muted-foreground">Likes: {person.preferences}</p>
-                            )}
-                            {person.allergies && (
-                              <p className="text-xs text-destructive">Allergies: {person.allergies}</p>
-                            )}
-                          </div>
-                        </div>
-                        {!isLocked && (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-primary/20"
-                              onClick={(e) => { e.stopPropagation(); handleEditPerson(person); }}
-                            >
-                              <Edit2 className="w-3 h-3 text-primary" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-red-600"
-                              onClick={(e) => { e.stopPropagation(); handleRemovePerson(person.id.toString()); }}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-400" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <Button
-                    className={`w-full mt-2 rounded-full ${
-                      !isSubscribed 
-                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    }`}
-                    onClick={() => isSubscribed && setAddPersonOpen(true)}
-                    disabled={!isSubscribed}
-                  >
-                    {!isSubscribed ? (
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4" />
-                        Add Person
-                      </div>
-                    ) : (
-                      'Add Person'
-                    )}
-                  </Button>
-
-                </div>
-              </Card>
-            )}
-          </div>
-
           {/* Quick Add Button */}
           <Button 
             variant="outline"
-            className="w-full border-dashed border-2 py-4 text-muted-foreground hover:text-foreground hover:border-primary rounded-full"
-            onClick={() => setQuickAddOpen(true)}
+            className="w-full border-dashed border-2 py-4 text-muted-foreground rounded-full opacity-50 cursor-not-allowed"
+            disabled
           >
             <Star className="w-4 h-4 mr-2" />
             Quick Add
@@ -672,12 +501,12 @@ export const Home = () => {
         </div>
 
         {/* Main Content Area - List View */}
-          <div className="space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+          <div className="space-y-2 max-h-[75vh] overflow-y-auto scrollbar-hide">
             {daysOfWeek.map((day) => {
               
               return (
-                <GlowCard key={day} className="bg-gradient-to-br from-muted/20 to-muted/40 border-border rounded-3xl p-6">
-                  <h2 className="text-2xl font-bold text-foreground mb-6">{day}</h2>
+                <GlowCard key={day} className="bg-gradient-to-br from-muted/20 to-muted/40 border-border rounded-2xl p-3">
+                  <h2 className="text-lg font-bold text-foreground mb-3">{day}</h2>
                   
                   <div className="space-y-4">
                     {mealTimes.map(({ name, icon: Icon }) => {
@@ -731,9 +560,13 @@ export const Home = () => {
                                 if (displayMeal) {
                                   handleEditMealPlan(displayMeal, day);
                                 } else {
-                                  setSelectedMealTime(name);
-                                  setSelectedDay(day);
-                                  setAddMealOpen(true);
+                                  const params = new URLSearchParams({
+                                    day: day,
+                                    mealTime: name,
+                                    currentMeal: '',
+                                    week: selectedWeek || 'Week - 1'
+                                  });
+                                  navigate(`/edit-meal?${params.toString()}`);
                                 }
                               }}
                             >
@@ -746,7 +579,7 @@ export const Home = () => {
                   </div>
 
                   <Button 
-                    className="w-full mt-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-4 text-lg font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                    className="w-full mt-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
                     onClick={() => setCraftMealOpen(true)}
                   >
                     Craft Your Meal
@@ -917,42 +750,6 @@ export const Home = () => {
             <Button onClick={handleUpdateMeal} className="w-full">
               Update Meal
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Plan Month Dialog */}
-      <Dialog open={planMonthOpen} onOpenChange={setPlanMonthOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Plan Your Month</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Select Month</Label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md border mx-auto"
-              />
-            </div>
-            {selectedDate && (
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Selected Month:</p>
-                <p className="font-semibold">
-                  {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                </p>
-              </div>
-            )}
-            <LoadingButton 
-              onClick={handlePlanMonth} 
-              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg transition-all duration-300"
-              loading={planMonthLoading}
-              loadingText="Planning..."
-            >
-              Start Planning
-            </LoadingButton>
           </div>
         </DialogContent>
       </Dialog>
@@ -1156,37 +953,7 @@ export const Home = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Meal Plan Dialog */}
-      <Dialog open={editMealPlanOpen} onOpenChange={setEditMealPlanOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Meal Plan</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="edit-meal-plan-name">Meal Name</Label>
-              <Input
-                id="edit-meal-plan-name"
-                value={editMealPlanName}
-                onChange={(e) => setEditMealPlanName(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Day</Label>
-                <p className="text-sm text-muted-foreground mt-1">{selectedDay}</p>
-              </div>
-              <div>
-                <Label>Meal Time</Label>
-                <p className="text-sm text-muted-foreground mt-1">{editingMealPlan?.mealTime}</p>
-              </div>
-            </div>
-            <Button onClick={handleUpdateMealPlan} className="w-full">
-              Update Meal
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       <BottomNav />
       

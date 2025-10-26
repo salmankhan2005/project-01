@@ -39,6 +39,7 @@ import { Support } from "./pages/Support";
 import { EmailSettings } from "./pages/EmailSettings";
 import { AdminNotifications } from "./pages/AdminNotifications";
 import MealPlanTemplates from "./pages/MealPlanTemplates";
+import { EditMeal } from "./pages/EditMeal";
 
 import NotFound from "./pages/NotFound";
 
@@ -91,6 +92,7 @@ const AppRoutes = () => {
       <Route path="/meal-sharing" element={<ProtectedRoute><MealSharing /></ProtectedRoute>} />
       <Route path="/client-view" element={<ProtectedRoute><ClientView /></ProtectedRoute>} />
       <Route path="/meal-plan-templates" element={<ProtectedRoute><MealPlanTemplates /></ProtectedRoute>} />
+      <Route path="/edit-meal" element={<ProtectedRoute><EditMeal /></ProtectedRoute>} />
 
       
       <Route path="*" element={<NotFound />} />

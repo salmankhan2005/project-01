@@ -22,14 +22,11 @@ export const More = () => {
 
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile', auth: true },
-
-    { icon: BarChart3, label: 'Analytics', path: '/analytics', auth: true },
-    { icon: CreditCard, label: 'Billing & Subscription', path: '/billing', auth: false },
+    { icon: CreditCard, label: 'Billing & Subscription', path: '/billing', auth: false, disabled: true },
     { icon: Mail, label: 'Email Settings', path: '/email-settings', auth: true },
-
     { icon: Settings, label: 'Settings', path: '/settings', auth: false },
     { icon: Bell, label: 'Notifications', path: '/notifications', auth: false },
-    { icon: Crown, label: 'Unlock', path: '/billing', auth: false, highlight: true },
+    { icon: Crown, label: 'Unlock', path: '/billing', auth: false, highlight: true, disabled: true },
     { icon: MessageSquare, label: 'Enhanced Support & Help', path: '/support', auth: false },
   ];
 
@@ -72,27 +69,35 @@ export const More = () => {
         </GlowCard>
 
         {/* Main Menu */}
-        <div className="space-y-4 mb-6">
+        <div className="mb-6">
           {menuItems.map((item, idx) => {
             const Icon = item.icon;
             if (item.auth && !isAuthenticated) return null;
             
-            return (
-              <Link to={item.path} key={item.label}>
-                <GlowCard className={`p-4 hover:bg-muted/50 transition-all duration-300 animate-fade-up hover:scale-[1.02] ${
-                  item.highlight ? 'bg-gradient-to-r from-secondary/10 to-primary/10 border-primary/30 shadow-md' : 'bg-gradient-to-r from-card to-card/80'
-                }`} style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-5 h-5 ${item.highlight ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className={`font-medium ${item.highlight ? 'text-primary' : ''}`}>
-                        {item.label}
-                      </span>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            const content = (
+              <GlowCard className={`p-4 transition-all duration-300 animate-fade-up ${
+                item.disabled 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-muted/50 hover:scale-[1.02]'
+              } ${
+                item.highlight ? 'bg-gradient-to-r from-secondary/10 to-primary/10 border-primary/30 shadow-md' : 'bg-gradient-to-r from-card to-card/80'
+              }`} style={{ animationDelay: `${idx * 0.05}s` }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-5 h-5 ${item.highlight ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`font-medium ${item.highlight ? 'text-primary' : ''}`}>
+                      {item.label}
+                    </span>
                   </div>
-                </GlowCard>
-              </Link>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </div>
+              </GlowCard>
+            );
+            
+            return item.disabled ? (
+              <div key={item.label}>{content}</div>
+            ) : (
+              <Link to={item.path} key={item.label}>{content}</Link>
             );
           })}
         </div>

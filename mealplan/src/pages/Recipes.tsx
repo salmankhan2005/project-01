@@ -105,6 +105,7 @@ export const Recipes = () => {
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedMealTime, setSelectedMealTime] = useState('');
   const [showSearchSignInNotification, setShowSearchSignInNotification] = useState(false);
+  const [showGuestNotification, setShowGuestNotification] = useState(true);
   const { savedRecipes, unsaveRecipe } = useSavedRecipes();
   const { isAuthenticated, isGuest } = useAuth();
   const { addToMealPlan, currentWeek } = useMealPlan();
@@ -268,42 +269,62 @@ export const Recipes = () => {
       />
       
       <main className="px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto">
-        {/* Search Bar */}
-        <div className="relative mb-4 sm:mb-6 animate-fade-in">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Search recipes..."
-            value={searchQuery}
-            onChange={(e) => {
-              if (!isGuest) {
-                setSearchQuery(e.target.value);
-              }
-            }}
-            onClick={() => {
-              if (isGuest) {
-                setShowSearchSignInNotification(true);
-                setTimeout(() => setShowSearchSignInNotification(false), 3000);
-              }
-            }}
-            className="pl-9 sm:pl-10 h-10 sm:h-12 text-sm sm:text-base"
-            readOnly={isGuest}
-          />
-        </div>
-
-
-
-        {/* Action Buttons */}
-        <div className="mb-6 sm:mb-8">
+        {/* Guest Mode Notification */}
+        {isGuest && showGuestNotification && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 shadow-lg max-w-sm mx-auto relative">
+              <button 
+                onClick={() => setShowGuestNotification(false)}
+                className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-black font-bold hover:bg-orange-100 rounded-full"
+              >
+                ×
+              </button>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-orange-600 text-sm">ℹ</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-orange-800">
+                    You're in guest mode. Recipes will be saved locally on this device only. Sign in to save recipes to your account.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Search Bar and Create Recipe Button */}
+        <div className="flex gap-3 mb-4 sm:mb-6 animate-fade-in">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search recipes..."
+              value={searchQuery}
+              onChange={(e) => {
+                if (!isGuest) {
+                  setSearchQuery(e.target.value);
+                }
+              }}
+              onClick={() => {
+                if (isGuest) {
+                  setShowSearchSignInNotification(true);
+                  setTimeout(() => setShowSearchSignInNotification(false), 3000);
+                }
+              }}
+              className="pl-9 sm:pl-10 h-10 sm:h-12 text-sm sm:text-base"
+              readOnly={isGuest}
+            />
+          </div>
           <Link to="/recipe-builder">
-            <Button variant="outline" className="w-full h-20 sm:h-24 md:h-28 flex flex-col gap-2 hover:bg-primary/5 transition-colors">
-              <Plus className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
-              <span className="text-xs sm:text-sm md:text-base font-semibold">Create Recipe</span>
+            <Button variant="outline" className="h-10 sm:h-12 px-3 sm:px-4 flex items-center gap-2 hover:bg-primary/5 transition-colors whitespace-nowrap">
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-xs sm:text-sm font-semibold">Create Recipe</span>
             </Button>
           </Link>
         </div>
 
         {/* Lottie Animation Display */}
-        <div className="mb-12 sm:mb-16 flex justify-center px-4 py-6">
+        <div className="mb-8 sm:mb-12 flex justify-center px-4 py-6">
           <LottieAnimation className="w-48 h-32" />
         </div>
 

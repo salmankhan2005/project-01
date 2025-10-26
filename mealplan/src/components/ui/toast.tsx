@@ -14,7 +14,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-[9999] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      "fixed bottom-28 left-4 right-4 z-[9999] flex flex-col gap-2 md:bottom-4 md:right-4 md:left-auto md:max-w-[420px]",
       className,
     )}
     {...props}
