@@ -703,9 +703,7 @@ export const Home = () => {
           </Button>
         </div>
 
-        {/* Main Content Area */}
-        {viewMode === 'list' ? (
-          /* List View - Scrollable Day Cards */
+        {/* Main Content Area - List View */}
           <div className="space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
             {daysOfWeek.map((day) => {
               
@@ -790,73 +788,6 @@ export const Home = () => {
             })}
 
           </div>
-        ) : (
-          /* Calendar View */
-          <Card className="p-6">
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-foreground mb-4">Meal Calendar</h3>
-              <Calendar
-                mode="single"
-                selected={selectedCalendarDate}
-                onSelect={setSelectedCalendarDate}
-                className="rounded-md border mx-auto"
-              />
-            </div>
-            
-            {selectedCalendarDate && (
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-foreground">
-                  {selectedCalendarDate.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </h4>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  {mealTimes.map(({ name, icon: Icon }) => {
-                    const dayMeals = getMealsForDate(selectedCalendarDate);
-                    // Filter meals based on selected week and person
-                    const filteredMeals = dayMeals.filter(m => {
-                      const weekMatch = !selectedWeek || m.week === selectedWeek;
-                      const selectedPersonId = typeof selectedFood === 'string' ? people.find(p => p.name === selectedFood)?.id : selectedFood;
-                      const personMatch = !selectedFood || selectedFood === '' || m.assignedTo === selectedPersonId;
-                      return weekMatch && personMatch;
-                    });
-                    const meal = filteredMeals.find(m => m.time === name);
-                    return (
-                      <Card 
-                        key={name} 
-                        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => handleCalendarMealAdd(selectedCalendarDate, name)}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <Icon className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">{name}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {meal?.name || 'Click to add meal'}
-                        </p>
-                        {meal && meal.assignedTo && (
-                          <p className="text-xs text-primary mt-1">
-                            {people.find(p => p.id === meal.assignedTo)?.name}
-                          </p>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-                
-                <Button 
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full py-3 flex items-center justify-center gap-2"
-                  onClick={() => setCraftMealOpen(true)}
-                >
-                  Craft Your Meal
-                </Button>
-              </div>
-            )}
-          </Card>
-        )}
       </main>
 
       {/* Add Meal Dialog */}
