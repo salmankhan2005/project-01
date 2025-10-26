@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMealPlan } from '@/contexts/MealPlanContext';
 import { useUserData } from '@/contexts/UserDataContext';
 import { useTour } from '@/contexts/TourContext';
+import { useRecipeContext } from '@/contexts/RecipeContext';
 import { GuidedTour } from '@/components/GuidedTour';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export const Home = () => {
   const { getMealsForDay, removeFromMealPlan, addToMealPlan, loading: mealPlanLoading, mealPlan, currentWeek, setCurrentWeek } = useMealPlan();
   const { people, preferences, addPerson, updatePerson, deletePerson, updatePreferences } = useUserData();
   const { showTour, completeTour } = useTour();
+  const { createRecipe } = useRecipeContext();
   const navigate = useNavigate();
   const [selectedWeek, setSelectedWeek] = useState(preferences.selectedWeek);
   const [selectedFood, setSelectedFood] = useState<string>('');
@@ -269,17 +271,18 @@ export const Home = () => {
     
     setCraftMealLoading(true);
     try {
-      if (isAuthenticated) {
-        await apiService.createRecipe({
-          name: craftMealName,
-          ingredients: craftMealIngredients.split('\n').filter(i => i.trim()),
-          instructions: craftMealInstructions.split('\n').filter(i => i.trim()),
-          servings: 1,
-          difficulty: 'medium'
-        });
-      }
+      await createRecipe({
+        title: craftMealName,
+        ingredients: craftMealIngredients.split('\n').filter(i => i.trim()),
+        instructions: craftMealInstructions.split('\n').filter(i => i.trim()),
+        servings: 1,
+        difficulty: 'medium',
+        prep_time: 15,
+        cook_time: 30,
+        description: 'Custom crafted recipe'
+      });
       
-      toast.success(`Recipe "${craftMealName}" crafted successfully!`);
+      toast.success(`Recipe "${craftMealName}" saved to your recipes!`);
       setCraftMealName('');
       setCraftMealIngredients('');
       setCraftMealInstructions('');
@@ -507,14 +510,20 @@ export const Home = () => {
           <Button
             variant={viewMode === 'calendar' ? 'default' : 'ghost'}
             size="sm"
-            className="flex-1 rounded-full"
+            className={`flex-1 rounded-full ${isGuest ? 'opacity-50' : ''}`}
             onClick={() => {
+              if (isGuest) {
+                setShowSignInNotification(true);
+                setTimeout(() => setShowSignInNotification(false), 3000);
+                return;
+              }
               setViewMode('calendar');
               savePreferences(undefined, 'calendar');
             }}
           >
             <Grid className="w-4 h-4 mr-2" />
             Calendar
+            {isGuest && <Lock className="w-3 h-3 ml-1" />}
           </Button>
         </div>
 
@@ -576,14 +585,20 @@ export const Home = () => {
           <div className="relative">
             <Button
               variant="outline"
-              className="w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground"
+              className={`w-full justify-between bg-muted/50 border-border rounded-full py-4 text-muted-foreground ${!isSubscribed ? 'opacity-50' : ''}`}
               onClick={() => {
+                if (!isSubscribed) {
+                  setShowSubscriptionNotification(true);
+                  setTimeout(() => setShowSubscriptionNotification(false), 3000);
+                  return;
+                }
                 setFoodDropdownOpen(!foodDropdownOpen);
                 setWeekDropdownOpen(false);
               }}
             >
               {selectedFood ? people.find(p => p.id.toString() === selectedFood)?.name || 'Food for' : 'Food for'}
-              {foodDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {!isSubscribed && <Lock className="w-4 h-4 ml-2" />}
+              {isSubscribed && (foodDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
             </Button>
             {foodDropdownOpen && (
               <Card className="absolute top-full left-0 right-0 mt-2 z-10 bg-card border-border">
@@ -864,15 +879,26 @@ export const Home = () => {
               <Label htmlFor="meal-assigned">Assign to</Label>
               <select
                 id="meal-assigned"
-                className="w-full p-2 border rounded-md"
+                className={`w-full p-2 border rounded-md ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''}`}
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
+                onChange={(e) => {
+                  if (!isSubscribed) {
+                    setShowSubscriptionNotification(true);
+                    setTimeout(() => setShowSubscriptionNotification(false), 3000);
+                    return;
+                  }
+                  setSelectedAssignedTo(e.target.value || null);
+                }}
+                disabled={!isSubscribed}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
                   <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
+              {!isSubscribed && (
+                <p className="text-xs text-muted-foreground mt-1">Subscribe to assign meals to people</p>
+              )}
             </div>
             <div>
               <Label htmlFor="meal-description">Description (Optional)</Label>
@@ -940,15 +966,26 @@ export const Home = () => {
               <Label htmlFor="edit-meal-assigned">Assign to</Label>
               <select
                 id="edit-meal-assigned"
-                className="w-full p-2 border rounded-md"
+                className={`w-full p-2 border rounded-md ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''}`}
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
+                onChange={(e) => {
+                  if (!isSubscribed) {
+                    setShowSubscriptionNotification(true);
+                    setTimeout(() => setShowSubscriptionNotification(false), 3000);
+                    return;
+                  }
+                  setSelectedAssignedTo(e.target.value || null);
+                }}
+                disabled={!isSubscribed}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
                   <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
+              {!isSubscribed && (
+                <p className="text-xs text-muted-foreground mt-1">Subscribe to assign meals to people</p>
+              )}
             </div>
             <div>
               <Label htmlFor="edit-meal-description">Description (Optional)</Label>
@@ -1118,15 +1155,26 @@ export const Home = () => {
               <Label htmlFor="quick-meal-assigned">Assign to</Label>
               <select
                 id="quick-meal-assigned"
-                className="w-full p-2 border border-border rounded-md bg-background text-foreground"
+                className={`w-full p-2 border border-border rounded-md bg-background text-foreground ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''}`}
                 value={selectedAssignedTo ?? ''}
-                onChange={(e) => setSelectedAssignedTo(e.target.value || null)}
+                onChange={(e) => {
+                  if (!isSubscribed) {
+                    setShowSubscriptionNotification(true);
+                    setTimeout(() => setShowSubscriptionNotification(false), 3000);
+                    return;
+                  }
+                  setSelectedAssignedTo(e.target.value || null);
+                }}
+                disabled={!isSubscribed}
               >
                 <option value="">Unassigned</option>
                 {people.map(p => (
                   <option key={p.id} value={p.id.toString()}>{p.name}</option>
                 ))}
               </select>
+              {!isSubscribed && (
+                <p className="text-xs text-muted-foreground mt-1">Subscribe to assign meals to people</p>
+              )}
             </div>
             <LoadingButton 
               onClick={handleQuickAdd} 

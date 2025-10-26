@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { recipeService, Recipe } from '@/services/recipeService';
+import { useAuth } from '@/contexts/AuthContext';
+
+const GUEST_RECIPES_KEY = 'guestRecipes';
 
 export const useRecipes = () => {
+  const { isAuthenticated } = useAuth();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -10,8 +14,13 @@ export const useRecipes = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await recipeService.getRecipes();
-      setRecipes(data);
+      if (isAuthenticated) {
+        const data = await recipeService.getRecipes();
+        setRecipes(data);
+      } else {
+        const guestRecipes = localStorage.getItem(GUEST_RECIPES_KEY);
+        setRecipes(guestRecipes ? JSON.parse(guestRecipes) : []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
     } finally {
@@ -23,9 +32,22 @@ export const useRecipes = () => {
     setLoading(true);
     setError(null);
     try {
-      const newRecipe = await recipeService.createRecipe(recipe);
-      setRecipes(prev => [...prev, newRecipe]);
-      return newRecipe;
+      if (isAuthenticated) {
+        const newRecipe = await recipeService.createRecipe(recipe);
+        setRecipes(prev => [...prev, newRecipe]);
+        return newRecipe;
+      } else {
+        const newRecipe: Recipe = {
+          ...recipe,
+          id: `guest-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const updatedRecipes = [...recipes, newRecipe];
+        setRecipes(updatedRecipes);
+        localStorage.setItem(GUEST_RECIPES_KEY, JSON.stringify(updatedRecipes));
+        return newRecipe;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create recipe');
       throw err;
@@ -88,7 +110,7 @@ export const useRecipes = () => {
 
   useEffect(() => {
     fetchRecipes();
-  }, []);
+  }, [isAuthenticated]);
 
   return {
     recipes,

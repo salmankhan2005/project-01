@@ -172,6 +172,9 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
         setMealPlan(updatedPlan);
         localStorage.setItem(`guestMealPlan_${currentWeek}`, JSON.stringify(updatedPlan));
+        
+        // Dispatch event to notify shopping list
+        window.dispatchEvent(new CustomEvent('mealsUpdated'));
       }
     } catch (error) {
       console.error('Failed to add to meal plan:', error);
@@ -192,6 +195,9 @@ export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
         });
         setMealPlan(updatedPlan);
         localStorage.setItem(`guestMealPlan_${currentWeek}`, JSON.stringify(updatedPlan));
+        
+        // Dispatch event to notify shopping list
+        window.dispatchEvent(new CustomEvent('mealsUpdated'));
       }
     } catch (error) {
       console.error('Failed to remove from meal plan:', error);

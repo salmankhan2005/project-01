@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Check, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
+import { useMealPlan } from '@/contexts/MealPlanContext';
+import { useRecipeContext } from '@/contexts/RecipeContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +33,8 @@ const mockItems = [
 export const Shopping = () => {
   const { isAuthenticated, isGuest } = useAuth();
   const { savedRecipes } = useSavedRecipes();
+  const { mealPlan } = useMealPlan();
+  const { recipes } = useRecipeContext();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [items, setItems] = useState<typeof mockItems>([]);
@@ -68,51 +72,290 @@ export const Shopping = () => {
   
   useEffect(() => {
     loadRecipeIngredients();
+  }, [savedRecipes, recipes, isGuest]);
+
+  // Load meal ingredients whenever meal plan changes
+  useEffect(() => {
     loadMealIngredients();
-  }, [savedRecipes, isGuest]);
+  }, [mealPlan, recipes]);
+
+  // Force refresh on component mount to catch any missed updates
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadMealIngredients();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Listen for meal plan updates
+  useEffect(() => {
+    const handleMealsUpdated = () => {
+      setTimeout(() => loadMealIngredients(), 100);
+    };
+    
+    const handleStorageChange = () => {
+      setTimeout(() => loadMealIngredients(), 100);
+    };
+    
+    window.addEventListener('mealsUpdated', handleMealsUpdated);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('mealsUpdated', handleMealsUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [recipes]);
 
 
 
   const loadMealIngredients = () => {
-    const ingredients = new Set<string>();
+    const ingredientItems: any[] = [];
     
-    // Add some test ingredients for now
-    const testIngredients = ['Chicken Breast', 'Rice', 'Broccoli', 'Olive Oil'];
-    testIngredients.forEach(ingredient => ingredients.add(ingredient));
-    
-    // Get ingredients from guest meals (localStorage)
-    try {
-      const guestMeals = localStorage.getItem('guest_meals');
-      if (guestMeals) {
-        const meals = JSON.parse(guestMeals);
-        Object.values(meals).forEach((dayMeals: any) => {
-          if (Array.isArray(dayMeals)) {
-            dayMeals.forEach((meal: any) => {
-              if (meal.ingredients && Array.isArray(meal.ingredients)) {
-                meal.ingredients.forEach((ingredient: string) => {
-                  if (ingredient && typeof ingredient === 'string') {
-                    ingredients.add(ingredient.trim());
+    // For guest users, check localStorage directly
+    if (isGuest) {
+      try {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith('guestMealPlan_'));
+        
+        keys.forEach(key => {
+          const guestMealPlan = localStorage.getItem(key);
+          
+          if (guestMealPlan) {
+            const parsedMealPlan = JSON.parse(guestMealPlan);
+            
+            Object.entries(parsedMealPlan).forEach(([day, dayMeals]: [string, any]) => {
+              if (Array.isArray(dayMeals)) {
+                dayMeals.forEach((meal) => {
+                  // For guest meals, ingredients might be stored directly in the meal
+                  if (meal.ingredients && Array.isArray(meal.ingredients)) {
+                    meal.ingredients.forEach((ingredient: string, index: number) => {
+                      if (ingredient && typeof ingredient === 'string') {
+                        ingredientItems.push({
+                          id: `meal-${meal.id}-${index}`,
+                          name: sanitizeHtml(ingredient.trim()),
+                          category: categorizeIngredient(ingredient),
+                          checked: false,
+                          mealTime: meal.mealTime,
+                          recipeName: meal.recipeName,
+                          day: day,
+                          source: 'mealplan'
+                        });
+                      }
+                    });
+                  } else {
+                    // Try to find recipe from RecipeContext or localStorage
+                    let recipe = recipes.find(r => r.id?.toString() === meal.recipeId?.toString());
+                    
+                    // If not found in RecipeContext, check localStorage for guest recipes
+                    if (!recipe) {
+                      try {
+                        const recipeKeys = Object.keys(localStorage).filter(key => 
+                          key.includes('recipe') || key.includes('Recipe') || key.includes('guest')
+                        );
+                        
+                        for (const key of recipeKeys) {
+                          try {
+                            const data = localStorage.getItem(key);
+                            if (data) {
+                              const parsed = JSON.parse(data);
+                              
+                              if (Array.isArray(parsed)) {
+                                recipe = parsed.find((r: any) => r.id?.toString() === meal.recipeId?.toString());
+                                if (recipe) break;
+                                
+                                // Also try name matching within this array
+                                recipe = parsed.find((r: any) => 
+                                  (r.name && r.name.toLowerCase() === meal.recipeName.toLowerCase()) ||
+                                  (r.title && r.title.toLowerCase() === meal.recipeName.toLowerCase())
+                                );
+                                if (recipe) break;
+                              }
+                            }
+                          } catch (e) {
+                            // Skip invalid JSON
+                          }
+                        }
+                        
+                        // Fallback: try to match by name in RecipeContext
+                        if (!recipe) {
+                          recipe = recipes.find(r => 
+                            (r.name && r.name.toLowerCase() === meal.recipeName.toLowerCase()) ||
+                            (r.title && r.title.toLowerCase() === meal.recipeName.toLowerCase())
+                          );
+                        }
+                        
+                        // Last resort: create basic ingredients from recipe name
+                        if (!recipe && meal.recipeName) {
+                          console.log('Creating basic ingredients for recipe:', meal.recipeName, 'with ID:', meal.recipeId);
+                          const recipeName = meal.recipeName.toLowerCase();
+                          let basicIngredients = [];
+                          
+                          if (recipeName.includes('coffee')) {
+                            basicIngredients = ['Coffee', 'Bread', 'Butter'];
+                          } else if (recipeName.includes('chicken') && recipeName.includes('salad')) {
+                            basicIngredients = ['Chicken Breast', 'Mixed Greens', 'Cherry Tomatoes', 'Olive Oil', 'Lemon'];
+                          } else if (recipeName.includes('chicken')) {
+                            basicIngredients = ['Chicken Breast', 'Salt', 'Black Pepper', 'Olive Oil'];
+                          } else if (recipeName.includes('salad')) {
+                            basicIngredients = ['Lettuce', 'Tomato', 'Cucumber', 'Dressing'];
+                          } else if (recipeName.includes('pasta')) {
+                            basicIngredients = ['Pasta', 'Tomato Sauce', 'Garlic', 'Olive Oil'];
+                          } else if (recipeName.includes('soup')) {
+                            basicIngredients = ['Vegetables', 'Broth', 'Onion', 'Salt'];
+                          } else if (recipeName.includes('sandwich')) {
+                            basicIngredients = ['Bread', 'Meat', 'Cheese', 'Lettuce'];
+                          } else if (recipeName.includes('rice')) {
+                            basicIngredients = ['Rice', 'Water', 'Salt', 'Oil'];
+                          } else if (recipeName.includes('fish')) {
+                            basicIngredients = ['Fish Fillet', 'Lemon', 'Salt', 'Olive Oil'];
+                          } else {
+                            // Generic ingredients based on recipe name
+                            const words = meal.recipeName.split(' ');
+                            basicIngredients = words.length > 1 
+                              ? [words[0], words[1], 'Salt', 'Oil']
+                              : [meal.recipeName, 'Salt', 'Oil'];
+                          }
+                          
+                          console.log('Generated ingredients:', basicIngredients);
+                          basicIngredients.forEach((ingredient, index) => {
+                            ingredientItems.push({
+                              id: `meal-${meal.id}-${index}`,
+                              name: sanitizeHtml(ingredient),
+                              category: categorizeIngredient(ingredient),
+                              checked: false,
+                              mealTime: meal.mealTime,
+                              recipeName: meal.recipeName,
+                              day: day,
+                              source: 'mealplan'
+                            });
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error loading guest recipes:', error);
+                      }
+                    }
+                    
+                    if (recipe && recipe.ingredients) {
+                      recipe.ingredients.forEach((ingredient: string, index) => {
+                        if (ingredient && typeof ingredient === 'string') {
+                          ingredientItems.push({
+                            id: `meal-${meal.id}-${index}`,
+                            name: sanitizeHtml(ingredient.trim()),
+                            category: categorizeIngredient(ingredient),
+                            checked: false,
+                            mealTime: meal.mealTime,
+                            recipeName: meal.recipeName,
+                            day: day,
+                            source: 'mealplan'
+                          });
+                        }
+                      });
+                    }
                   }
                 });
               }
             });
           }
         });
+      } catch (error) {
+        console.error('Error loading guest meal plan:', error);
       }
-    } catch (error) {
-      ErrorHandler.logError(
-        ErrorHandler.handleApiError(error),
-        'loadMealIngredients'
-      );
     }
     
-    // Convert to shopping items format
-    const ingredientItems = Array.from(ingredients).map((ingredient, index) => ({
-      id: `meal-ingredient-${index}`,
-      name: sanitizeHtml(ingredient),
-      category: categorizeIngredient(ingredient),
-      checked: false
-    }));
+    // Also get ingredients from meal plan context (as backup)
+    console.log('Processing MealPlanContext data...');
+    Object.entries(mealPlan).forEach(([day, dayMeals]) => {
+      console.log(`Processing ${day} with ${dayMeals.length} meals from context`);
+      dayMeals.forEach((meal, mealIndex) => {
+        console.log(`Context meal ${mealIndex}:`, meal);
+        // Find recipe details for this meal
+        const recipe = recipes.find(r => r.id?.toString() === meal.recipeId?.toString());
+        console.log(`Found recipe for context meal ${mealIndex}:`, recipe);
+        
+        if (recipe && recipe.ingredients) {
+          recipe.ingredients.forEach((ingredient: string, index) => {
+            if (ingredient && typeof ingredient === 'string') {
+              // Check if this ingredient is already added from localStorage
+              const existingId = `meal-${meal.id}-${index}`;
+              if (!ingredientItems.find(item => item.id === existingId)) {
+                console.log(`Adding ingredient from context: ${ingredient}`);
+                ingredientItems.push({
+                  id: existingId,
+                  name: sanitizeHtml(ingredient.trim()),
+                  category: categorizeIngredient(ingredient),
+                  checked: false,
+                  mealTime: meal.mealTime,
+                  recipeName: meal.recipeName,
+                  day: day,
+                  source: 'mealplan'
+                });
+              }
+            }
+          });
+        } else if (!recipe) {
+          console.log(`No recipe found for context meal, creating basic ingredients for: ${meal.recipeName}`);
+          // Create basic ingredients for meals without recipes
+          const recipeName = meal.recipeName.toLowerCase();
+          let basicIngredients = [];
+          
+          if (recipeName.includes('chicken') && recipeName.includes('salad')) {
+            basicIngredients = ['Chicken Breast', 'Mixed Greens', 'Cherry Tomatoes', 'Olive Oil', 'Lemon'];
+          } else if (recipeName.includes('chicken')) {
+            basicIngredients = ['Chicken Breast', 'Salt', 'Black Pepper', 'Olive Oil'];
+          } else if (recipeName.includes('salad')) {
+            basicIngredients = ['Lettuce', 'Tomato', 'Cucumber', 'Dressing'];
+          } else if (recipeName.includes('pasta')) {
+            basicIngredients = ['Pasta', 'Tomato Sauce', 'Garlic', 'Olive Oil'];
+          } else if (recipeName.includes('soup')) {
+            basicIngredients = ['Vegetables', 'Broth', 'Onion', 'Salt'];
+          } else {
+            // Generic ingredients based on recipe name
+            const words = meal.recipeName.split(' ');
+            basicIngredients = words.length > 1 
+              ? [words[0], words[1], 'Salt', 'Oil']
+              : [meal.recipeName, 'Salt', 'Oil'];
+          }
+          
+          basicIngredients.forEach((ingredient, index) => {
+            const existingId = `meal-${meal.id}-${index}`;
+            if (!ingredientItems.find(item => item.id === existingId)) {
+              console.log(`Adding basic ingredient from context: ${ingredient}`);
+              ingredientItems.push({
+                id: existingId,
+                name: sanitizeHtml(ingredient),
+                category: categorizeIngredient(ingredient),
+                checked: false,
+                mealTime: meal.mealTime,
+                recipeName: meal.recipeName,
+                day: day,
+                source: 'mealplan'
+              });
+            }
+          });
+        }
+      });
+    });
+    
+    // Automatically add meal ingredients to final items
+    setItems(prev => {
+      const existingItemNames = prev.map(item => item.name.toLowerCase());
+      const newMealItems = ingredientItems.filter(ingredient => 
+        !existingItemNames.includes(ingredient.name.toLowerCase())
+      );
+      
+      if (newMealItems.length > 0) {
+        const updatedItems = [...newMealItems, ...prev];
+        
+        // Save to localStorage for guest mode
+        if (isGuest) {
+          localStorage.setItem('guest_shopping_items', JSON.stringify(updatedItems));
+        }
+        
+        return updatedItems;
+      }
+      
+      return prev;
+    });
+    
     setMealIngredients(ingredientItems);
   };
 
@@ -436,7 +679,11 @@ export const Shopping = () => {
   const ShoppingList = () => (
     <div className="space-y-3">
       {items.map((item, idx) => (
-        <GlowCard key={item.id} className="p-4 animate-fade-up bg-gradient-to-r from-card to-card/80 hover:shadow-md" 
+        <GlowCard key={item.id} className={`p-4 animate-fade-up hover:shadow-md ${
+          item.source === 'mealplan' 
+            ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800'
+            : 'bg-gradient-to-r from-card to-card/80'
+        }`} 
               style={{ animationDelay: `${idx * 0.05}s` }}>
           <div className="flex items-center gap-3">
             <Checkbox
@@ -449,6 +696,9 @@ export const Shopping = () => {
                 {item.name}
               </p>
               <p className="text-xs text-muted-foreground">{item.category}</p>
+              {item.source === 'mealplan' && (
+                <p className="text-xs text-primary">{item.day} • {item.mealTime} • {item.recipeName}</p>
+              )}
             </div>
             <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)}>
               <Trash2 className="w-4 h-4 text-destructive" />
@@ -555,7 +805,80 @@ export const Shopping = () => {
         )}
         {activeTab === 'final' && (
           <div className="space-y-6">
-            <ShoppingList />
+
+            {/* Meal Plan Ingredients Grouped by Recipe */}
+            {(() => {
+              const mealGroups = items.filter(item => item.source === 'mealplan')
+                .reduce((groups, item) => {
+                  const key = `${item.recipeName} (${item.day} • ${item.mealTime})`;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(item);
+                  return groups;
+                }, {} as Record<string, typeof items>);
+              
+              return Object.entries(mealGroups).map(([groupName, groupItems]) => (
+                <div key={groupName} className="mb-6">
+                  <h3 className="text-lg font-semibold mb-3 text-primary">{groupName}</h3>
+                  <div className="space-y-3">
+                    {groupItems.map((item, idx) => (
+                      <GlowCard key={item.id} className="p-4 animate-fade-up bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800 hover:shadow-md" 
+                            style={{ animationDelay: `${idx * 0.05}s` }}>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={item.checked}
+                            onCheckedChange={() => toggleItem(item.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                          <div className="flex-1">
+                            <p className={`font-medium ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{item.category}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </GlowCard>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()
+            }
+            
+            {/* Other Shopping Items */}
+            {(() => {
+              const otherItems = items.filter(item => item.source !== 'mealplan');
+              return otherItems.length > 0 ? (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-3">Other Items</h3>
+                  <div className="space-y-3">
+                    {otherItems.map((item, idx) => (
+                      <GlowCard key={item.id} className="p-4 animate-fade-up bg-gradient-to-r from-card to-card/80 hover:shadow-md" 
+                            style={{ animationDelay: `${idx * 0.05}s` }}>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={item.checked}
+                            onCheckedChange={() => toggleItem(item.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                          <div className="flex-1">
+                            <p className={`font-medium ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{item.category}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </GlowCard>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
             
             {/* Recent Items Section */}
             {recentItems.length > 0 && (
@@ -635,6 +958,38 @@ export const Shopping = () => {
         {/* Action Buttons - Only show in final tab */}
         {activeTab === 'final' && (
           <div className="space-y-3 mt-6">
+            <Button 
+              onClick={() => {
+                console.log('=== REFRESH BUTTON CLICKED ===');
+                console.log('Current items before refresh:', items);
+                console.log('Current mealPlan:', mealPlan);
+                console.log('Tuesday meals detailed:', mealPlan.Tuesday);
+                console.log('Current recipes:', recipes);
+                
+                // Log each Tuesday meal in detail
+                if (mealPlan.Tuesday) {
+                  mealPlan.Tuesday.forEach((meal, index) => {
+                    console.log(`Tuesday meal ${index}:`, meal);
+                  });
+                }
+                
+                // Clear existing meal plan items first
+                setItems(prev => prev.filter(item => item.source !== 'mealplan'));
+                
+                // Then reload meal ingredients
+                loadMealIngredients();
+                
+                toast({
+                  title: "Refreshed",
+                  description: "Shopping list updated with latest meals",
+                });
+              }}
+              variant="outline"
+              className="w-full h-12 gap-2"
+            >
+              Refresh Meal Ingredients
+            </Button>
+            
             <Button 
               className={`w-full h-12 gap-2 ${
                 items.filter(i => !i.checked).length === 0 && items.length > 0

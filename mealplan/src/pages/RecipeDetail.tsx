@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Clock, Users, Heart, Share, Plus, Volume2, VolumeX } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
+import { useRecipeContext } from '@/contexts/RecipeContext';
 import { useReviews } from '@/contexts/ReviewsContext';
 import { StarRating } from '@/components/StarRating';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,6 +56,7 @@ export const RecipeDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { savedRecipes, isRecipeSaved, saveRecipe, unsaveRecipe } = useSavedRecipes();
+  const { recipes: userRecipes, getRecipe } = useRecipeContext();
   const { getRecipeReviews, getAverageRating, addReview } = useReviews();
   const { isAuthenticated } = useAuth();
   const { addToMealPlan } = useMealPlan();
@@ -81,32 +83,39 @@ export const RecipeDetail = () => {
   const loadRecipeDetails = async () => {
     let foundRecipe = null;
     
-    // Check localStorage first (for guest recipes)
-    try {
-      const guestDiscoverRecipes = localStorage.getItem('guest_discover_recipes');
-      const guestCreatedRecipes = localStorage.getItem('createdRecipes');
-      const savedRecipes = localStorage.getItem('savedRecipes');
-      
-      if (guestDiscoverRecipes) {
-        const discoverRecipes = JSON.parse(guestDiscoverRecipes);
-        foundRecipe = discoverRecipes.find(r => r.id.toString() === id);
+    // Check user created recipes first (from RecipeContext)
+    const userRecipe = userRecipes.find(r => r.id?.toString() === id);
+    if (userRecipe) {
+      foundRecipe = {
+        ...userRecipe,
+        name: userRecipe.title || userRecipe.name,
+        time: userRecipe.cook_time ? `${userRecipe.cook_time} min` : '30 min'
+      };
+      setDiscoverRecipe(foundRecipe);
+    }
+    
+    // Check localStorage for other recipes
+    if (!foundRecipe) {
+      try {
+        const guestDiscoverRecipes = localStorage.getItem('guest_discover_recipes');
+        const savedRecipes = localStorage.getItem('savedRecipes');
+        
+        if (guestDiscoverRecipes) {
+          const discoverRecipes = JSON.parse(guestDiscoverRecipes);
+          foundRecipe = discoverRecipes.find(r => r.id.toString() === id);
+        }
+        
+        if (!foundRecipe && savedRecipes) {
+          const recipes = JSON.parse(savedRecipes);
+          foundRecipe = recipes.find(r => r.id.toString() === id);
+        }
+        
+        if (foundRecipe) {
+          setDiscoverRecipe(foundRecipe);
+        }
+      } catch (error) {
+        console.log('Error loading from localStorage:', error);
       }
-      
-      if (!foundRecipe && guestCreatedRecipes) {
-        const createdRecipes = JSON.parse(guestCreatedRecipes);
-        foundRecipe = createdRecipes.find(r => r.id.toString() === id);
-      }
-      
-      if (!foundRecipe && savedRecipes) {
-        const recipes = JSON.parse(savedRecipes);
-        foundRecipe = recipes.find(r => r.id.toString() === id);
-      }
-      
-      if (foundRecipe) {
-        setDiscoverRecipe(foundRecipe);
-      }
-    } catch (error) {
-      console.log('Error loading from localStorage:', error);
     }
     
     // Try database if authenticated and not found locally

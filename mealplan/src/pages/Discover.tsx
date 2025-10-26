@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Clock, Users, Bookmark, BookmarkCheck, Info } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
+import { useRecipeContext } from '@/contexts/RecipeContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -37,6 +38,7 @@ export const Discover = () => {
   const [loading, setLoading] = useState(true);
   const [showSearchSignInNotification, setShowSearchSignInNotification] = useState(false);
   const { saveRecipe, unsaveRecipe, isRecipeSaved, createdRecipes } = useSavedRecipes();
+  const { recipes: userCreatedRecipes } = useRecipeContext();
   const { isGuest, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -79,19 +81,18 @@ export const Discover = () => {
     }
   };
 
-  // Get user created recipes from localStorage for guest mode
-  const getUserCreatedRecipes = () => {
-    if (isGuest) {
-      const guestCreatedRecipes = localStorage.getItem('guest_created_recipes');
-      return guestCreatedRecipes ? JSON.parse(guestCreatedRecipes) : [];
-    }
-    return createdRecipes || [];
-  };
-  
   // Combine database recipes, user-created recipes, and mock recipes
   const allRecipes = [
     ...discoverRecipes,
-    ...getUserCreatedRecipes(), 
+    ...userCreatedRecipes.map(recipe => ({
+      id: recipe.id,
+      name: recipe.title || recipe.name,
+      time: recipe.cook_time ? `${recipe.cook_time} min` : '30 min',
+      servings: recipe.servings || 1,
+      image: '🍽️',
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions
+    })), 
     ...mockRecipes
   ].filter((recipe, index, self) => 
     recipe && 

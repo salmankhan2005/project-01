@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Search, Clock, Users, BookmarkX, CalendarPlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
+import { useRecipeContext } from '@/contexts/RecipeContext';
 import { useToast } from '@/hooks/use-toast';
 import { LottieAnimation } from '@/components/LottieAnimation';
 import { GlowCard } from '@/components/GlowCard';
@@ -97,7 +98,7 @@ export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dbSavedRecipes, setDbSavedRecipes] = useState<any[]>([]);
-  const [userRecipes, setUserRecipes] = useState<any[]>([]);
+  const { recipes: userRecipes } = useRecipeContext();
   const [loading, setLoading] = useState(true);
   const [mealPlanDialog, setMealPlanDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -117,24 +118,8 @@ export const Recipes = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadSavedRecipes();
-      loadUserRecipes();
-    } else {
-      // Load guest recipes from localStorage
-      const guestCreatedRecipes = localStorage.getItem('createdRecipes');
-      if (guestCreatedRecipes) {
-        setUserRecipes(JSON.parse(guestCreatedRecipes).map(recipe => ({
-          id: recipe.id,
-          name: recipe.name,
-          image: recipe.image || '🍽️',
-          time: recipe.time || '30 min',
-          servings: recipe.servings || 1,
-          category: 'Custom',
-          ingredients: recipe.ingredients || [],
-          instructions: recipe.instructions || []
-        })));
-      }
-      setLoading(false);
     }
+    setLoading(false);
     
     // Set up polling for admin recipe updates (only if authenticated)
     let interval;
@@ -341,7 +326,7 @@ export const Recipes = () => {
         <AdminRecipesSection />
 
         {/* My Recipes (Crafted Meals) */}
-        {isAuthenticated && userRecipes.length > 0 && (
+        {userRecipes.length > 0 && (
           <div className="mb-8 mt-12">
             <h3 className="text-base sm:text-lg md:text-xl font-heading font-semibold mb-3 sm:mb-4">
               My Recipes ({userRecipes.length})
