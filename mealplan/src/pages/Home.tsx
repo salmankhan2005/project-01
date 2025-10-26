@@ -493,39 +493,7 @@ export const Home = () => {
           </Button>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex gap-2 bg-muted/50 rounded-full p-1">
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="sm"
-            className="flex-1 rounded-full"
-            onClick={() => {
-              setViewMode('list');
-              savePreferences(undefined, 'list');
-            }}
-          >
-            <List className="w-4 h-4 mr-2" />
-            List View
-          </Button>
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-            size="sm"
-            className={`flex-1 rounded-full ${isGuest ? 'opacity-50' : ''}`}
-            onClick={() => {
-              if (isGuest) {
-                setShowSignInNotification(true);
-                setTimeout(() => setShowSignInNotification(false), 3000);
-                return;
-              }
-              setViewMode('calendar');
-              savePreferences(undefined, 'calendar');
-            }}
-          >
-            <Grid className="w-4 h-4 mr-2" />
-            Calendar
-            {isGuest && <Lock className="w-3 h-3 ml-1" />}
-          </Button>
-        </div>
+
 
         {/* Horizontal Row: Week, Food for, Quick Add */}
         <div className="grid grid-cols-3 gap-4">

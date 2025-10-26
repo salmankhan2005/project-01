@@ -139,15 +139,23 @@ class ApiService {
   }
 
   async verifyToken(): Promise<{ user: { id: string; email: string; name?: string; phone?: string; location?: string; bio?: string } }> {
-    const response = await fetch(`${API_BASE_URL}/auth/verify`, {
-      headers: this.getAuthHeaders()
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+        headers: this.getAuthHeaders()
+      });
 
-    if (!response.ok) {
-      throw new Error('Token verification failed');
+      if (!response.ok) {
+        throw new Error('Token verification failed');
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network error - backend is down, but token might still be valid
+        throw new Error('NETWORK_ERROR');
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   async updateProfile(data: ProfileData): Promise<{ message: string; user: { id: string; email: string; name?: string; phone?: string; location?: string; bio?: string } }> {

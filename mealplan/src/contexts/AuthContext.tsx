@@ -43,35 +43,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // First check if backend is available
+      const token = localStorage.getItem('auth_token');
+      
+      // If user has a token, try to verify it first
+      if (token) {
+        try {
+          const response = await apiService.verifyToken();
+          setUser(response.user);
+          setIsAuthenticated(true);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+            // Network error - keep user logged in but mark as offline
+            console.warn('Cannot verify token due to network error, keeping user logged in');
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            return;
+          }
+          console.error('Token verification failed:', error);
+          localStorage.removeItem('auth_token');
+        }
+      }
+      
+      // Only check backend health if no valid token exists
       try {
         const isHealthy = await apiService.checkHealth();
         if (!isHealthy) {
           console.warn('Backend server is not available, continuing in guest mode');
           setIsGuest(true);
           localStorage.setItem('guest_mode', 'true');
-          setIsLoading(false);
-          return;
         }
       } catch (error) {
         console.warn('Health check failed, continuing in guest mode', error);
         setIsGuest(true);
         localStorage.setItem('guest_mode', 'true');
-        setIsLoading(false);
-        return;
       }
       
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        try {
-          const response = await apiService.verifyToken();
-          setUser(response.user);
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Token verification failed:', error);
-          localStorage.removeItem('auth_token');
-        }
-      }
       setIsLoading(false);
     };
     
@@ -82,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await apiService.login({ email, password });
       localStorage.setItem('auth_token', response.token);
+      localStorage.removeItem('guest_mode');
       setUser(response.user);
       setIsAuthenticated(true);
       setIsGuest(false);

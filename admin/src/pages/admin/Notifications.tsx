@@ -149,36 +149,7 @@ const Notifications = () => {
         </Card>
       </div>
 
-      {/* Recent Notifications */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-heading text-lg md:text-xl">Recent Notifications</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 md:space-y-4">
-            {[
-              { type: "Push", title: "New Recipe Alert", sent: "2 hours ago", recipients: 8234 },
-              { type: "Email", title: "Weekly Newsletter", sent: "1 day ago", recipients: 12453 },
-              { type: "Push", title: "Premium Discount", sent: "3 days ago", recipients: 5234 },
-              { type: "Email", title: "Feature Update", sent: "1 week ago", recipients: 12453 },
-            ].map((notif, idx) => (
-              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 md:p-4 rounded-lg border">
-                <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-                  <div className={`p-2 rounded-full shrink-0 ${notif.type === "Push" ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}>
-                    {notif.type === "Push" ? <Bell className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm md:text-base">{notif.title}</p>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Sent to {notif.recipients.toLocaleString()} users • {notif.sent}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };

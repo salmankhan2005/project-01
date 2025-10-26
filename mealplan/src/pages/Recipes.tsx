@@ -98,7 +98,7 @@ export const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dbSavedRecipes, setDbSavedRecipes] = useState<any[]>([]);
-  const { recipes: userRecipes } = useRecipeContext();
+  const { recipes: userRecipes, fetchRecipes } = useRecipeContext();
   const [loading, setLoading] = useState(true);
   const [mealPlanDialog, setMealPlanDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -118,6 +118,7 @@ export const Recipes = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadSavedRecipes();
+      fetchRecipes();
     }
     setLoading(false);
     
@@ -140,7 +141,7 @@ export const Recipes = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchRecipes]);
 
   const loadSavedRecipes = async () => {
     try {
@@ -160,23 +161,7 @@ export const Recipes = () => {
     }
   };
 
-  const loadUserRecipes = async () => {
-    try {
-      const response = await apiService.getRecipes();
-      setUserRecipes(response.recipes.map(recipe => ({
-        id: recipe.id,
-        name: recipe.title || recipe.name || 'Untitled Recipe',
-        image: recipe.image || '🍽️',
-        time: recipe.cook_time ? `${recipe.cook_time} min` : '30 min',
-        servings: recipe.servings || 1,
-        category: recipe.difficulty || 'Custom',
-        ingredients: recipe.ingredients || [],
-        instructions: recipe.instructions || []
-      })));
-    } catch (error) {
-      console.error('Failed to load user recipes:', error);
-    }
-  };
+
 
   const filteredRelevantRecipes = relevantRecipes.filter(recipe => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -344,15 +329,15 @@ export const Recipes = () => {
                         {recipe.image}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.name}</h4>
+                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.title || 'Untitled Recipe'}</h4>
                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {recipe.time}
+                            {recipe.cook_time ? `${recipe.cook_time} min` : '30 min'}
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="w-3 h-3" />
-                            {recipe.servings} servings
+                            {recipe.servings || 1} servings
                           </span>
                         </div>
                         <span className="inline-block bg-green-600 text-white text-xs px-2 py-1 rounded-md">
