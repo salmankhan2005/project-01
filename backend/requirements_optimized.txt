@@ -1,0 +1,57 @@
+# Core Flask dependencies
+Flask>=3.0.3,<4.0.0
+Flask-CORS>=4.0.1,<5.0.0
+# Database and ORM
+supabase>=2.6.0,<3.0.0
+# Authentication and Security
+PyJWT>=2.9.0,<3.0.0
+Werkzeug>=3.0.3,<4.0.0
+cryptography>=41.0.0,<42.0.0
+# Environment and Configuration
+python-dotenv>=1.0.1,<2.0.0
+# Caching
+redis>=5.0.0,<6.0.0
+hiredis>=2.2.0,<3.0.0  # Fast Redis parser
+# Async and Performance
+asyncpg>=0.29.0,<1.0.0
+gevent>=23.9.0,<24.0.0
+eventlet>=0.33.0,<1.0.0
+# Production Server
+gunicorn>=21.2.0,<22.0.0
+uvicorn[standard]>=0.24.0,<1.0.0  # Alternative ASGI server
+# Monitoring and Logging
+psutil>=5.9.0,<6.0.0  # System monitoring
+structlog>=23.2.0,<24.0.0  # Structured logging
+# Data Validation and Serialization
+marshmallow>=3.20.0,<4.0.0
+pydantic>=2.5.0,<3.0.0
+# HTTP Client (for external APIs)
+httpx>=0.25.0,<1.0.0
+requests>=2.31.0,<3.0.0
+# Date and Time
+python-dateutil>=2.8.0,<3.0.0
+# Development and Testing (optional)
+pytest>=7.4.0,<8.0.0
+pytest-cov>=4.1.0,<5.0.0
+black>=23.0.0,<24.0.0
+flake8>=6.0.0,<7.0.0
+mypy>=1.7.0,<2.0.0
+
+# Production Monitoring (optional)
+sentry-sdk[flask]>=1.38.0,<2.0.0
+prometheus-client>=0.19.0,<1.0.0
+
+# Rate Limiting
+Flask-Limiter>=3.5.0,<4.0.0
+
+# Input Validation
+email-validator>=2.1.0,<3.0.0
+phonenumbers>=8.13.0,<9.0.0
+
+# File Processing (if needed)
+Pillow>=10.1.0,<11.0.0  # Image processing
+python-magic>=0.4.27,<1.0.0  # File type detection
+
+# Utilities
+click>=8.1.0,<9.0.0  # CLI utilities
+tqdm>=4.66.0,<5.0.0  # Progress bars
