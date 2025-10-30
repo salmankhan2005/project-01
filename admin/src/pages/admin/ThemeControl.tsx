@@ -16,6 +16,7 @@ const ThemeControl = () => {
     { id: 3, name: "Morning Dew", status: "Active", users: 320, preview: "#f0fdf4", accent: "#22c55e" },
     { id: 4, name: "Cozy Rustic", status: "Inactive", users: 45, preview: "#fef7ed", accent: "#ea580c" },
     { id: 5, name: "Vibrant Healthy", status: "Active", users: 180, preview: "#ecfdf5", accent: "#059669" },
+    { id: 6, name: "Genie", status: "Active", users: 0, preview: "#111827", accent: "#FACC15" },
   ]);
 
   const [formData, setFormData] = useState({
