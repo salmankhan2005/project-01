@@ -532,11 +532,7 @@ export const Home = () => {
                                   {people.find(p => p.id.toString() === displayMeal.assignedTo?.toString())?.name}
                                 </p>
                               )}
-                              {mealPlanItem && (
-                                <p className="text-xs text-green-600">
-                                  Added via meal plan
-                                </p>
-                              )}
+
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -578,12 +574,7 @@ export const Home = () => {
                     })}
                   </div>
 
-                  <Button 
-                    className="w-full mt-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
-                    onClick={() => setCraftMealOpen(true)}
-                  >
-                    Craft Your Meal
-                  </Button>
+
                 </GlowCard>
               );
             })}

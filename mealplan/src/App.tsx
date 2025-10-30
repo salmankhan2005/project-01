@@ -37,6 +37,7 @@ const ClientView = lazy(() => import("./pages/ClientView").then(m => ({ default:
 const Billing = lazy(() => import("./pages/Billing").then(m => ({ default: m.Billing })));
 const Analytics = lazy(() => import("./pages/Analytics").then(m => ({ default: m.Analytics })));
 const Support = lazy(() => import("./pages/Support").then(m => ({ default: m.Support })));
+const Feedback = lazy(() => import("./pages/Feedback").then(m => ({ default: m.Feedback })));
 const EmailSettings = lazy(() => import("./pages/EmailSettings").then(m => ({ default: m.EmailSettings })));
 const AdminNotifications = lazy(() => import("./pages/AdminNotifications").then(m => ({ default: m.AdminNotifications })));
 const MealPlanTemplates = lazy(() => import("./pages/MealPlanTemplates"));
@@ -101,6 +102,7 @@ const AppRoutes = () => {
       <Route path="/premium" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Premium /></Suspense></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Notifications /></Suspense></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Help /></Suspense></ProtectedRoute>} />
+      <Route path="/feedback" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Feedback /></Suspense></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Support /></Suspense></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Billing /></Suspense></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><Analytics /></Suspense></ProtectedRoute>} />

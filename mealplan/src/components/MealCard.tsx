@@ -29,7 +29,6 @@ export const MealCard: React.FC<MealCardProps> = ({
               <span className="bg-primary text-primary-foreground font-heading font-bold text-xs px-2 py-1 rounded-md">
                 {mealType}
               </span>
-              <AnimatedChef size={14} />
             </div>
             <p className="font-sans text-sm text-gray-700">
               {mealName}

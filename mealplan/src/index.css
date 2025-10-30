@@ -572,6 +572,46 @@ All colors MUST be HSL.
     --glass-bg: 0 0% 100% / 0.9;
     --glass-border: 120 15% 78% / 0.3;
   }
+
+  .genie {
+    /* Genie Theme - Dark mode with vibrant yellow accents */
+    --background: 220 39% 11%;  /* Deep background #111827 */
+    --foreground: 0 0% 100%;  /* White text #FFFFFF */
+
+    --card: 215 28% 17%;  /* Card background #1F2937 */
+    --card-foreground: 210 20% 98%;  /* Light gray text #F3F4F6 */
+
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 20% 98%;
+
+    /* Primary Yellow (#EAB308) */
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 0%;  /* Black text on yellow */
+    --primary-hover: 43 96% 40%;  /* Hover yellow #CA8A04 */
+
+    /* Secondary Red for destructive actions (#DC2626) */
+    --secondary: 0 73% 51%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 0 75% 42%;  /* Hover red #B91C1C */
+
+    --muted: 215 25% 27%;  /* Input fields #374151 */
+    --muted-foreground: 220 13% 69%;  /* Secondary text #9CA3AF */
+
+    --accent: 48 96% 53%;  /* Accent yellow #FACC15 */
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 73% 51%;  /* Red for delete actions #DC2626 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 45 93% 47%;  /* Yellow borders #EAB308 */
+    --input: 215 25% 27%;  /* Input background #374151 */
+    --ring: 45 93% 47%;  /* Focus ring yellow */
+
+    --radius: 0.75rem;  /* 12px rounded corners */
+
+    --glass-bg: 215 28% 17% / 0.8;
+    --glass-border: 45 93% 47% / 0.2;
+  }
 }
 
 @layer base {
@@ -581,6 +621,11 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Genie theme font */
+  .font-genie {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 
   /* Glassmorphism utility */
@@ -698,5 +743,24 @@ All colors MUST be HSL.
   /* Responsive gap utilities */
   .gap-responsive-sm { @apply gap-2 sm:gap-3 md:gap-4; }
   .gap-responsive-base { @apply gap-4 sm:gap-6 md:gap-8; }
+
+  /* Fix for dropdown z-index issues in dialogs */
+  [data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+  }
+
+  [data-radix-select-content] {
+    z-index: 9999 !important;
+  }
+
+  /* Ensure dialog overlay has proper z-index */
+  [data-radix-dialog-overlay] {
+    z-index: 9998 !important;
+  }
+
+  /* Ensure dialog content is above overlay but below dropdowns */
+  [data-radix-dialog-content] {
+    z-index: 9998 !important;
+  }
 }
 

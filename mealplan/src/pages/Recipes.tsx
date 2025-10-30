@@ -4,7 +4,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Clock, Users, BookmarkX, CalendarPlus } from 'lucide-react';
+import { Plus, Search, Clock, Users, BookmarkX, CalendarPlus, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedRecipes } from '@/contexts/SavedRecipesContext';
 import { useRecipeContext } from '@/contexts/RecipeContext';
@@ -313,7 +313,7 @@ export const Recipes = () => {
           </div>
         )}
         
-        {/* Search Bar and Create Recipe Button */}
+        {/* Search Bar, Refresh Button, and Create Recipe Button */}
         <div className="flex gap-3 mb-4 sm:mb-6 animate-fade-in">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" />
@@ -335,6 +335,15 @@ export const Recipes = () => {
               readOnly={isGuest}
             />
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="h-10 sm:h-12 px-3 transition-colors"
+            aria-label="Refresh page"
+          >
+            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
+          </Button>
           <Link to="/recipe-builder">
             <Button variant="outline" className="h-10 sm:h-12 px-3 sm:px-4 flex items-center gap-2 hover:bg-primary/5 transition-colors whitespace-nowrap">
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -370,7 +379,7 @@ export const Recipes = () => {
                         {recipe.image}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 sm:mb-2 line-clamp-2">{recipe.title || 'Untitled Recipe'}</h4>
+                        <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 mb-1 sm:mb-2 line-clamp-2">{recipe.title || 'Untitled Recipe'}</h4>
                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 text-xs text-muted-foreground mb-2">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />

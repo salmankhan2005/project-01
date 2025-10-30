@@ -47,6 +47,7 @@ export default {
         serif: ['Merriweather', 'serif'],
         heading: ['Merriweather', 'serif'],
         day: ['RocknRoll One', 'system-ui', 'sans-serif'],
+        genie: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       spacing: {
         '18': '4.5rem',
@@ -88,6 +89,21 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        genie: {
+          'bg-deep': '#111827',
+          'bg-card': '#1F2937',
+          'bg-input': '#374151',
+          'text-primary': '#FFFFFF',
+          'text-secondary': '#F3F4F6',
+          'text-muted': '#D1D5DB',
+          'text-subtle': '#9CA3AF',
+          'accent-yellow': '#FACC15',
+          'primary-yellow': '#EAB308',
+          'hover-yellow': '#CA8A04',
+          'border-yellow': '#EAB308',
+          'destructive-red': '#DC2626',
+          'hover-red': '#B91C1C',
         },
       },
       borderRadius: {

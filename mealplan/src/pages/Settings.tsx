@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Moon, Sun, Bell, Lock, Globe, User, Download, Trash2, LogOut, Shield } from 'lucide-react';
+import { Moon, Sun, Bell, Lock, Globe, User, Download, Trash2, LogOut, Shield, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useCallback, useState, useEffect } from 'react';
@@ -53,32 +53,33 @@ export const Settings = () => {
   // Get base theme name (without -dark suffix)
   const getBaseTheme = (themeName: string | undefined): string => {
     if (!themeName || themeName === 'dark') return 'light';
+    if (themeName === 'genie') return 'genie';
     return themeName.replace('-dark', '');
   };
   
   // Determine if current theme is in dark mode
-  const isDarkMode = theme?.endsWith('-dark') || theme === 'dark';
+  const isDarkMode = theme?.endsWith('-dark') || theme === 'dark' || theme === 'genie';
   const baseTheme = getBaseTheme(theme);
   
   const handleDarkModeToggle = useCallback((checked: boolean) => {
     const currentBase = getBaseTheme(theme);
     if (checked) {
-      const newTheme = currentBase === 'light' ? 'dark' : `${currentBase}-dark`;
-      setTheme(newTheme);
+      if (currentBase === 'light') {
+        setTheme('dark');
+      } else if (currentBase === 'genie') {
+        setTheme('genie');
+      } else {
+        setTheme(`${currentBase}-dark`);
+      }
     } else {
-      setTheme(currentBase);
+      setTheme('light');
     }
   }, [theme, setTheme]);
 
   const handleThemeChange = useCallback((newTheme: string) => {
-    const currentIsDark = theme?.endsWith('-dark') || theme === 'dark';
-    if (currentIsDark) {
-      const themeWithDark = newTheme === 'light' ? 'dark' : `${newTheme}-dark`;
-      setTheme(themeWithDark);
-    } else {
-      setTheme(newTheme);
-    }
-  }, [theme, setTheme]);
+    // Always set the theme directly
+    setTheme(newTheme);
+  }, [setTheme]);
 
   const handleBackClick = useCallback(() => {
     if (window.history.length > 1) {
@@ -207,12 +208,23 @@ export const Settings = () => {
               />
             </div>
             <div>
-              <Label htmlFor="theme-select">Theme</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="theme-select">Theme</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                  className="h-8 px-2"
+                  aria-label="Refresh page"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
               <select
                 id="theme-select"
                 value={baseTheme}
                 onChange={(e) => handleThemeChange(e.target.value)}
-                className="w-full mt-2 h-10 px-3 rounded-md border border-input bg-card text-card-foreground"
+                className="w-full h-10 px-3 rounded-md border border-input bg-card text-card-foreground"
               >
                 <option value="light">Default Theme</option>
                 <option value="morning-dew">Morning Dew</option>
@@ -222,6 +234,7 @@ export const Settings = () => {
                 <option value="gourmet-elegant">Gourmet & Elegant</option>
                 <option value="playful-fun">Playful & Fun</option>
                 <option value="comic">Comic</option>
+                <option value="genie">Genie</option>
               </select>
             </div>
           </div>

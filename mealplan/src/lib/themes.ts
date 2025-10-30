@@ -55,5 +55,16 @@ export const themeColors: Record<string, ThemeColors> = {
     muted: 'bg-muted/40',
     mutedHover: 'hover:bg-blue-500/20',
   },
+  genie: {
+    primary: 'bg-yellow-500',
+    primaryHover: 'hover:bg-yellow-600',
+    secondary: 'bg-red-600',
+    accent: 'text-yellow-400',
+    accentHover: 'hover:text-yellow-300',
+    background: 'bg-gray-900',
+    cardBackground: 'bg-gray-800',
+    muted: 'bg-gray-700',
+    mutedHover: 'hover:bg-yellow-500/20',
+  },
   // Add more theme variants as needed
 };
