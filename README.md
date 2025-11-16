@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Meal Planning Backend API
 
 ## Project Structure
@@ -84,3 +85,6 @@ backend/
 ## Migration from Monolithic
 
 The original `app.py` contains all functionality in a single file. The new structure separates concerns for better maintainability. Both files can run simultaneously during migration.
+=======
+# project-01
+>>>>>>> da12ccbb76742ba76691bd900637a022176dcdd6
