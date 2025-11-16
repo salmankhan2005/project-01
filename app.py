@@ -2204,8 +2204,8 @@ def admin_subscription_plan_detail(plan_id):
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    port = int(os.getenv('PORT', 10000))
-    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', 5000))
+    host = os.getenv('HOST', '127.0.0.1')
     
     print(f'Starting Flask server on http://{host}:{port}')
     print(f'Health check available at: http://{host}:{port}/api/health')
